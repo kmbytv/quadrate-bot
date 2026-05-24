@@ -1,0 +1,27 @@
+# Telegram
+BOT_TOKEN=your_telegram_bot_token
+
+# OpenRouter (LLM)
+OPENROUTER_API_KEY=your_openrouter_key
+LLM_MODEL=anthropic/claude-opus-4-5
+
+# Deepgram (транскрипция)
+DEEPGRAM_API_KEY=your_deepgram_key
+
+# Google Sheets via SheetBest
+SHEETBEST_URL=https://api.sheetbest.com/sheets/YOUR_SHEET_ID
+
+# Руководитель(и) — через запятую если несколько
+MANAGER_ID=123456789
+
+# Ссылка на таблицу (для сводки в боте)
+SPREADSHEET_URL=https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit
+
+# Опционально
+PROXY_URL=
+KNOWN_SUPPLIERS=
+KNOWN_STAFF=
+ENABLE_SALES_SUMMARY=false
+LONG_REPORT_CHARS=1800
+CHUNK_TARGET_CHARS=1400
+MAX_ATTEMPTS=3
