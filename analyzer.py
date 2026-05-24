@@ -37,7 +37,7 @@ OPENROUTER_BASE = "https://openrouter.ai/api/v1"
 PROXY_URL = os.getenv("PROXY_URL")
 
 # Модель-агностично: ставь любую сильную reasoning-модель через .env.
-MODEL = os.getenv("LLM_MODEL", "anthropic/claude-opus-4-5")
+MODEL = os.getenv("LLM_MODEL", "anthropic/claude-opus-4-6")
 
 # Порог, после которого включается map-reduce. Меряем в символах транскрипта.
 # ~1800 символов ≈ полторы минуты речи. Длиннее — бьём на куски.
