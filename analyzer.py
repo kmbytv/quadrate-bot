@@ -51,6 +51,20 @@ MAX_ATTEMPTS = int(os.getenv("MAX_ATTEMPTS", "3"))
 KNOWN_SUPPLIERS = [s.strip() for s in os.getenv("KNOWN_SUPPLIERS", "").split(",") if s.strip()]
 KNOWN_STAFF = [s.strip() for s in os.getenv("KNOWN_STAFF", "").split(",") if s.strip()]
 
+# Каталог товаров — загружается из products.txt рядом с этим файлом.
+def _load_products() -> list[str]:
+    path = os.path.join(os.path.dirname(__file__), "products.txt")
+    try:
+        with open(path, encoding="utf-8") as f:
+            return [
+                line.strip() for line in f
+                if line.strip() and not line.startswith("#")
+            ]
+    except FileNotFoundError:
+        return []
+
+KNOWN_PRODUCTS = _load_products()
+
 
 def _headers():
     return {
@@ -77,6 +91,31 @@ def _hint_block() -> str:
     return ("\n━━━ ПОДСКАЗКА ПО ИМЕНАМ (приоритет, но не закон) ━━━\n"
             + "\n".join(parts)
             + "\nЕсли имя НЕ в списках — определяй роль ПО ДЕЙСТВИЮ, а не по имени.\n")
+
+
+def _products_block() -> str:
+    """Формирует блок с каталогом товаров для подстановки в промпт."""
+    if not KNOWN_PRODUCTS:
+        return ""
+    # Передаём только названия серий/коллекций (без артикулов) — этого достаточно
+    # для нормализации, и не раздувает промпт лишними символами.
+    series = []
+    seen = set()
+    for p in KNOWN_PRODUCTS:
+        # Берём первые 1-3 слова как имя серии
+        words = p.split()
+        key = " ".join(words[:3])
+        if key not in seen:
+            seen.add(key)
+            series.append(p)
+    return (
+        "\n━━━ КАТАЛОГ ТОВАРОВ МАГАЗИНА (эталонные названия) ━━━\n"
+        "При записи поля 'interest' используй точные названия из списка ниже.\n"
+        "Если продавец назвал товар приблизительно — подбери ближайшее совпадение.\n"
+        "Если товар явно не из каталога — запиши как сказал продавец.\n\n"
+        + "\n".join(series)
+        + "\n"
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -122,7 +161,7 @@ RULES = """━━━ КТО ТАКОЙ КЛИЕНТ (определяй ПО Д�
 • придумывать клиентов, суммы, детали, которых нет в тексте
 • писать "—" или "null"-строку вместо настоящего null
 • копировать данные из примеров
-""" + _hint_block()
+""" + _hint_block() + _products_block()
 
 
 # Поля JSON — единый контракт для обоих режимов.

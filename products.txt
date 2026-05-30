@@ -1,0 +1,578 @@
+# База товаров магазина Quadrate
+# Формат: одно название на строку. Строки с # — комментарии.
+
+# ──────────────────────────────────────────────
+# 1. КВАРЦ-ВИНИЛОВАЯ ПЛИТКА
+# ──────────────────────────────────────────────
+
+# Wonderful Vinyl Floor
+Wonderful Плитка ПВХ Руан LX 751-3-19
+Wonderful Плитка Амбер LX 660-24
+Wonderful Плитка Сиена LX 663-24
+Wonderful Плитка Браун LX 610-24
+Wonderful Плитка ПВХ Кале LX 713-1-19
+Wonderful Плитка ПВХ Меланж LX 755-5-22
+Wonderful Плитка ПВХ Винтер LX 763-9-22
+Wonderful Плитка ПВХ Дижон LX 711-2-19
+Wonderful Плитка ПВХ Лоредо LX 700-8-23
+Wonderful Плитка ПВХ Боссе LX 744-9-22
+Wonderful Лавсон KPR 668-25
+Wonderful Дюпре KPR 941-25
+Wonderful Монблан KPR 600-25
+Wonderful Аризона KPR 900-25
+Wonderful Цедрус KPR 609-25
+Wonderful Сахара KPR 666-25
+Wonderful Джана KPR 300-25
+Wonderful Флифер KPR 468-25
+Wonderful Шервуд KPR 656-25
+
+# Salag
+Salag Navajo Nevada Oak YС0V58
+Salag Navajo Arizona Oak YС0V57
+Salag Navajo Nebraska Oak YС0V54
+Salag Herringbone ECLAT YH3V05
+Salag Herringbone PRIME YH3V04
+Salag Herringbone VICTORY YH3V03
+Salag Herringbone CHATEAU YH3V02
+Salag Prestige XL Glory YV3153
+Salag Prestige XL Honor YV3152
+Salag Prestige L Essence YV3043
+Salag Stone SQ Sonata YA4050
+Salag Stone SQ Canto YA4049
+Salag Stone SQ Forte YA4048
+Salag Stone SQ Harmony YA4047
+Salag Wood Savor YV2056
+Salag Wood Gentle YV2055
+Salag Wood Intense YV2054
+Salag Wood Mastery YV2041
+Salag Wood Marengo YV2040
+Salag Wood Westhill YV2039
+
+# ArtEast — ART STONE FORCE
+ART STONE FORCE Дуб Дионис ASF 50-01
+ART STONE FORCE Дуб Ювента ASF 50-02
+ART STONE FORCE Дуб Веста ASF 50-03
+ART STONE FORCE Дуб Либер ASF 50-04
+ART STONE FORCE Дуб Эос ASF 50-05
+ART STONE FORCE Дуб Авентин ASF 50-06
+ART STONE FORCE Дуб Нокс ASF 50-07
+ART STONE FORCE Дуб Велес ASF 50-08
+
+# ArtEast — ARTEK
+ARTEK Дуб Карельский ART 10
+ARTEK Дуб Сибирский ART 22
+ARTEK Дуб Тамань ART 23
+ARTEK Дуб Дальневосточный ART 25
+ARTEK Орех Балтийский ART 39
+ARTEK Дуб Авачинский ART 41
+ARTEK Дуб Уральский ART 66
+ARTEK Дуб Забайкальский ART 75
+ARTEK Дуб Черноморский ART 192
+ARTEK Дуб Кубань ART 193
+
+# ArtEast — ART TILE PREMIUM
+ART TILE PREMIUM Ясень Соренто 100-2 ATP
+ART TILE PREMIUM Дуб Ланкастер 103-2 ATP
+ART TILE PREMIUM Ясень Аскольд 116-2 ATP
+ART TILE PREMIUM Дуб Нельма Микс 121-2 ATP
+
+# ArtEast — ART TILE CLICK
+ART TILE CLICK Дуб Асти 45-03
+ART TILE CLICK Дуб Капри 45-04
+ART TILE CLICK Дуб Абердин 45-05
+ART TILE CLICK Ясень Антиб 45-06
+ART TILE CLICK Ясень Кан 45-07
+ART TILE CLICK Дуб Ферран 45-08
+ART TILE CLICK Ясень Виченца 45-09
+ART TILE CLICK Ясень Тревизо 45-10
+
+# ArtEast — ART STONE OPTIMA PRO
+ART STONE OPTIMA PRO Ясень Норд ART 35-1
+ART STONE OPTIMA PRO Ясень Приморский ART 35-2
+ART STONE OPTIMA PRO Дуб Анталийский ART 35-4
+ART STONE OPTIMA PRO Дуб Осенний ART 35-5
+ART STONE OPTIMA PRO Дуб Рустик ART 35-7
+ART STONE OPTIMA PRO Ясень Кальвадос ART 35-8
+ART STONE OPTIMA PRO Акация Лазурная ART 35-11
+ART STONE OPTIMA PRO Лиственница Жуан ART 35-12
+ART STONE OPTIMA PRO Дуб Венето ART 35-13
+ART STONE OPTIMA PRO Дуб Амурский ART 35-14
+
+# ArtEast — ART STONE
+ART STONE Ясень Соренто ASP 100
+ART STONE Дуб Дижон ASP 101
+ART STONE Дуб Эдинбург ASP 102
+ART STONE Дуб Ланкастер ASP 103
+ART STONE Дуб Бристоль ASP 104
+ART STONE Ясень Парис ASP 114
+ART STONE Ясень Аскольд ASP 116
+ART STONE Дуб Нельма Микс ASP 121
+
+# ArtEast — ART STONE ARMOR
+ART STONE ARMOR Клён Купер ARM 88
+ART STONE ARMOR Канадский клён Аякс ARM 90
+ART STONE ARMOR Граб Емар ARM 91
+ART STONE ARMOR Ясень Бойсмана ARM 92
+ART STONE ARMOR Ясень Карамельный ARM 93
+ART STONE ARMOR Самшит Минка ARM 96
+ART STONE ARMOR Самшит Диомид ARM 98
+
+# AquaFloor — Reggae
+Reggae CALYPSO RG 8550-20
+Reggae DUB RG 3018-20
+Reggae EARLY RG 2510-20
+Reggae DANCE RG 7452-20
+Reggae ROOTS RG 1633-20
+Reggae EURO RG 7393-20
+
+# AquaFloor — Kassel
+Kassel Марбург KS992-22
+Kassel Винсент KS994-22
+Kassel Муланг KS 997-23
+Kassel Гессен KS 996-23
+Kassel Бруш KS993-22
+Kassel Нидда KS999-22
+Kassel Ландвер KS 995-23
+
+# AquaFloor — Edel
+Edel Элеганс ED 3741
+Edel Элит ED 3033
+Edel Адонис ED 6004
+Edel Элфи ED 88181
+Edel Ханна ED 663
+Edel Камели ED 6560
+Edel Лобург STM 096-23
+
+# AquaFloor — Amadeus
+Amadeus Дессау STM 025-22
+Amadeus Балто STM 083-23
+Amadeus Бохум STM 706-22
+Amadeus Бремен STM 971-22
+Amadeus Мельхус STM 094-22
+Amadeus Моншау STM 013-23
+Amadeus Кведлин STM 702-23
+
+# AquaFloor — Dagwood
+Dagwood Limewood DAG 400-23
+Dagwood Ashwood DAG 468-23
+Dagwood Snowood DAG 111-23
+Dagwood Goldwood DAG 665-23
+Dagwood Aspenwood DAG 163-23
+Dagwood Silverwood DAG 551-23
+Dagwood Oldwood DAG 703-23
+Dagwood Birchwood DAG 573-23
+Dagwood Mirkwood DAG 634-23
+
+# AquaFloor — Versailles
+Versailles AF7001VS
+Versailles AF7002VS
+Versailles AF7003VS
+Versailles AF7004VS
+Versailles AF7005VS
+
+# AquaFloor — Stone XL
+Stone XL AF5001MSXL
+Stone XL AF5002MSXL
+Stone XL AF5003MSXL
+Stone XL AF5004MSXL
+Stone XL AF5005MSXL
+Stone XL AF5011OSXL
+Stone XL AF5012OSXL
+Stone XL AF5013OSXL
+Stone XL AF5021FSXL
+Stone XL AF5031ESXL
+
+# AquaFloor — Stone
+Stone AF3555SST
+Stone AF3554SST
+Stone AF3553SST
+Stone AF3552SST
+Stone AF3551SST
+Stone AF3543CST
+Stone AF3542CST
+Stone AF3541CST
+Stone AF3533MST
+Stone AF3532MST
+Stone AF3531MST
+
+# AquaFloor — Space Select XL
+Space Select XL AF4090SXL
+Space Select XL AF4089SXL
+Space Select XL AF4088SXL
+Space Select XL AF4087SXL
+Space Select XL AF4086SXL
+Space Select XL AF4085SXL
+Space Select XL AF4084SXL
+Space Select XL AF4083SXL
+Space Select XL AF4082SXL
+Space Select XL AF4081SXL
+
+# AquaFloor — Space Parquet Light
+Space Parquet Light AF4501PQL
+Space Parquet Light AF4502PQL
+Space Parquet Light AF4503PQL
+Space Parquet Light AF4504PQL
+Space Parquet Light AF4505PQL
+Space Parquet Light AF4506PQL
+Space Parquet Light AF4507PQL
+Space Parquet Light AF4508PQL
+Space Parquet Light AF4509PQL
+Space Parquet Light AF4510PQL
+Space Parquet Light AF4511PQL
+Space Parquet Light AF4512PQL
+Space Parquet Light AF4513PQL
+Space Parquet Light AF4514PQL
+Space Parquet Light AF4515PQL
+Space Parquet Light AF4516PQL
+Space Parquet Light AF4517PQL
+Space Parquet Light AF4518PQL
+Space Parquet Light AF4519PQL
+Space Parquet Light AF4520PQL
+
+# AquaFloor — Space Nuts XL
+Space Nuts XL AF4071NXL
+Space Nuts XL AF4072NXL
+Space Nuts XL AF4073NXL
+Space Nuts XL AF4074NXL
+Space Nuts XL AF4075NXL
+
+# AquaFloor — Space
+Space AF4001SPC
+Space AF4002SPC
+Space AF4003SPC
+Space AF4004SPC
+Space AF4005SPC
+Space AF4006SPC
+Space AF4007SPC
+Space AF4008SPC
+Space AF4009SPC
+Space AF4032SPC
+Space AF4033SPC
+Space AF4034SPC
+Space AF4035SPC
+Space AF4036SPC
+Space AF4037SPC
+Space AF4038SPC
+Space AF4039SPC
+Space AF4040SPC
+Space AF4051SPC
+Space AF4052SPC
+Space AF4053SPC
+Space AF4054SPC
+Space AF4055SPC
+Space AF4056SPC
+Space AF4057SPC
+Space AF4058SPC
+Space AF4059SPC
+Space AF4060SPC
+
+# AquaFloor — Realwood XXL
+Realwood XXL AF8021XXL
+Realwood XXL AF8022XXL
+Realwood XXL AF8023XXL
+Realwood XXL AF8024XXL
+Realwood XXL AF8025XXL
+Realwood XXL AF8026XXL
+
+# AquaFloor — Realwood XL Glue
+Realwood XL Glue AF8001XL
+Realwood XL Glue AF8002XL
+Realwood XL Glue AF8003XL
+Realwood XL Glue AF8004XL
+Realwood XL Glue AF8005XL
+Realwood XL Glue AF8006XL
+Realwood XL Glue AF8007XL
+Realwood XL Glue AF8008XL
+Realwood XL Glue AF8009XL
+Realwood XL Glue AF8010XL
+
+# AquaFloor — Realwood XL
+Realwood XL AF8001XL
+Realwood XL AF8002XL
+Realwood XL AF8003XL
+Realwood XL AF8004XL
+Realwood XL AF8005XL
+
+# AquaFloor — Realwood (Click)
+Realwood AF6031 Click
+Realwood AF6032 Click
+Realwood AF6033 Click
+Realwood AF6034 Click
+Realwood AF6041 Click
+Realwood AF6042 Click
+Realwood AF6043 Click
+Realwood AF6051 Click
+Realwood AF6052 Click
+Realwood AF6053 Click
+
+# AquaFloor — Quartz
+Quartz AF3501QV
+Quartz AF3502QV
+Quartz AF3503QV
+Quartz AF3504QV
+Quartz AF3505QV
+Quartz AF3506QV
+Quartz AF3507QV
+Quartz AF3508QV
+Quartz AF3509QV
+Quartz AF3510QV
+Quartz AF3511QV
+Quartz AF3512QV
+Quartz AF3513QV
+Quartz AF3514QV
+Quartz AF3515QV
+
+# AquaFloor — Parquet Plus
+Parquet Plus AF6011PQ+
+Parquet Plus AF6012PQ+
+Parquet Plus AF6013PQ+
+Parquet Plus AF6014PQ+
+Parquet Plus AF6015PQ+
+Parquet Plus AF6016PQ+
+Parquet Plus AF6017PQ+
+Parquet Plus AF6018PQ+
+Parquet Plus AF6019PQ+
+Parquet Plus AF6020PQ+
+Parquet Plus AF6021PQN+
+Parquet Plus AF6022PQN+
+Parquet Plus AF6023PQN+
+Parquet Plus AF6024PQN+
+Parquet Plus AF6025PQN+
+
+# AquaFloor — Parquet Glue
+Parquet Glue AF2501PG
+Parquet Glue AF2502PG
+Parquet Glue AF2503PG
+Parquet Glue AF2504PG
+Parquet Glue AF2505PG
+Parquet Glue AF2506PG
+Parquet Glue AF2507PG
+Parquet Glue AF2508PG
+Parquet Glue AF2509PG
+Parquet Glue AF2510PG
+Parquet Glue AF2511PG
+Parquet Glue AF2512PG
+Parquet Glue AF2513PG
+Parquet Glue AF2514PG
+Parquet Glue AF2515PG
+Parquet Glue AF2516PG
+Parquet Glue AF2517PG
+Parquet Glue AF2519PG
+Parquet Glue AF2520PG
+
+# AquaFloor — Nano
+Nano AF3201N
+Nano AF3202N
+Nano AF3203N
+Nano AF3204N
+Nano AF3205N
+Nano AF3206N
+Nano AF3207N
+Nano AF3208N
+Nano AF3209N
+Nano AF3210N
+Nano AF3211N
+Nano AF3212N
+Nano AF3213N
+Nano AF3214N
+Nano AF3215N
+Nano AF3216N
+Nano AF3217N
+Nano AF3218N
+Nano AF3219N
+Nano AF3220N
+
+# AquaFloor — RealWood Glue
+RealWood Glue AF6031 Glue
+RealWood Glue AF6032 Glue
+RealWood Glue AF6033 Glue
+RealWood Glue AF6034 Glue
+RealWood Glue AF6041 Glue
+RealWood Glue AF6042 Glue
+RealWood Glue AF6043 Glue
+RealWood Glue AF6051 Glue
+RealWood Glue AF6052 Glue
+RealWood Glue AF6053 Glue
+
+# AquaFloor — Space Parquet Light Limited Edition
+Space Parquet Light Limited Edition AF4541PQLE
+Space Parquet Light Limited Edition AF4542PQLE
+Space Parquet Light Limited Edition AF4543PQLE
+Space Parquet Light Limited Edition AF4544PQLE
+Space Parquet Light Limited Edition AF4545PQLE
+Space Parquet Light Limited Edition AF4546PQLE
+Space Parquet Light Limited Edition AF4547PQLE
+Space Parquet Light Limited Edition AF4548PQLE
+Space Parquet Light Limited Edition AF4549PQLE
+Space Parquet Light Limited Edition AF4560PQLE
+
+# AquaFloor — Space Limited Edition
+Space Limited Edition AF4047SPLE
+Space Limited Edition AF4048SPLE
+Space Limited Edition AF4049SPLE
+Space Limited Edition AF4050SPLE
+
+# AquaFloor — Soundless
+Soundless AF7501SOU
+Soundless AF7502SOU
+Soundless AF7503SOU
+Soundless AF7504SOU
+Soundless AF7505SOU
+Soundless AF7506SOU
+
+# AquaFloor — Chevron Premium (Parquet)
+Chevron Premium AF7011CVR
+Chevron Premium AF7012CVR
+Chevron Premium AF7014CVR
+Chevron Premium AF7015CVR
+Chevron Premium AF7016CVR
+Chevron Premium AF7017CVR
+Chevron Premium AF7018CVR
+Chevron Premium AF7019CVR
+Chevron Premium AF7020CVR
+
+# AquaFloor — Chevron Glue (Parquet)
+Chevron Glue AF2551PGCh
+Chevron Glue AF2552PGCh
+Chevron Glue AF2553PGCh
+Chevron Glue AF2554PGCh
+Chevron Glue AF2555PGCh
+Chevron Glue AF2556PGCh
+Chevron Glue AF2557PGCh
+Chevron Glue AF2558PGCh
+Chevron Glue AF2559PGCh
+Chevron Glue AF2560PGCh
+
+# ──────────────────────────────────────────────
+# 2. КВАРЦ-ПАРКЕТ
+# ──────────────────────────────────────────────
+
+# Quartz Parquet — Штучный паркет (5/0,6 мм)
+Quartz Parquet Штучный паркет Дуб Европейский 44-1258-60
+Quartz Parquet Штучный паркет Клён Американский Белый 44-400-56
+Quartz Parquet Штучный паркет Дуб Карельский 44-419
+Quartz Parquet Штучный паркет Венге Африканский 44-550-64
+Quartz Parquet Штучный паркет Дуб Рейн 44-33429
+Quartz Parquet Штучный паркет Гикори Североамериканский 44-400-74
+Quartz Parquet Штучный паркет Вяз Кенигсберг 44-550-62
+Quartz Parquet Штучный паркет Тик Южноамериканский 44-400-71
+Quartz Parquet Штучный паркет Клён Американский 44-400-61
+Quartz Parquet Штучный паркет Дуссия Африканская 44-400-63
+Quartz Parquet Штучный паркет Орех Американский 44-400-29
+Quartz Parquet Штучный паркет Дуб Хельсинки 44-1258-58
+
+# Quartz Parquet — Классик 5/0,6 мм
+Quartz Parquet Классик Дуб Хельсинки 1258-58
+Quartz Parquet Классик Дуб Кедровый Латте 1258-59
+Quartz Parquet Классик Дуб Скандинавский 1258-57
+Quartz Parquet Классик Дуб Флэт Уайт 1258-55
+Quartz Parquet Классик Дуб Конго 1258-54
+
+# Quartz Parquet — Классик 7/1,2 мм
+Quartz Parquet Классик Венге Африканский 550-64
+Quartz Parquet Классик Клён Американский Белый 400-56
+Quartz Parquet Классик Дуссия Африканская 550-63
+Quartz Parquet Классик Венге Африканский 400-64
+Quartz Parquet Классик Дуб Европейский 1258-60
+Quartz Parquet Классик Клён Американский 400-61
+Quartz Parquet Классик Дуб Кедровый Латте 1258-59
+Quartz Parquet Классик Дуб Хельсинки 1258-58
+Quartz Parquet Классик Дуб Скандинавский 1258-57
+Quartz Parquet Классик Дуб Флэт Уайт 1258-55
+Quartz Parquet Классик Дуб Конго 1258-54
+Quartz Parquet Классик Дуб Медовый Раф 463
+Quartz Parquet Классик Орех Американский 400-29
+Quartz Parquet Классик Дуб Австрийский 418
+Quartz Parquet Классик Дуб Карельский 419
+Quartz Parquet Классик Дуб Шампань 414
+Quartz Parquet Классик Дуб Брауни 413
+Quartz Parquet Классик Дуб Средиземноморский 409
+Quartz Parquet Классик Дуб Рустикальный 410
+Quartz Parquet Классик Дуб Песочный 408
+Quartz Parquet Классик Дуб Тоскана 407
+Quartz Parquet Классик Дуб Лимба 405
+Quartz Parquet Классик Дуб Испанский 404
+
+# Quartz Parquet — Английская Ёлка 5/0,6 мм
+Quartz Parquet Английская Ёлка Дуб Медовый Раф 33-463
+Quartz Parquet Английская Ёлка Дуб Брауни 33-413
+Quartz Parquet Английская Ёлка Дуб Испанский 33-404
+Quartz Parquet Английская Ёлка Дуб Песочный 33-408
+Quartz Parquet Английская Ёлка Орех Американский 33-400-29
+Quartz Parquet Английская Ёлка Дуб Карельский 33-419
+Quartz Parquet Английская Ёлка Дуб Шампань 33-414
+Quartz Parquet Английская Ёлка Дуб Рустикальный 33-410
+Quartz Parquet Английская Ёлка Дуб Тоскана 33-407
+Quartz Parquet Английская Ёлка Дуб Лимба 33-405
+
+# ──────────────────────────────────────────────
+# 3. СТЕНОВЫЕ ПАНЕЛИ
+# ──────────────────────────────────────────────
+
+# AquaFloor — Aquawall
+Aquawall AW4251S
+Aquawall AW4252S
+Aquawall AW4253S
+Aquawall AW4254S
+Aquawall AW4255S
+Aquawall AW4241C
+Aquawall AW4242C
+Aquawall AW4243C
+Aquawall AW4231M
+Aquawall AW4232M
+Aquawall AW4233M
+
+# ──────────────────────────────────────────────
+# 4. ОБОИ
+# ──────────────────────────────────────────────
+
+FIPAR PLATINO
+FIPAR MODELLI DI LUCE
+ZAMBAITI LAMBORGHINI 3
+ZAMBAITI TRUSSARDI 7
+RASCH WALL TEXTURES XL III
+AS CREATION ELITE OF SHADES
+AS CREATION PACIFICA DELUXE
+RASCH My Cottage
+Studio Italia Collection Meraviglia
+Studio Italia Collection Valadier
+Duka Elite Classic II
+Studio Italia Collection Tesoro
+Studio Italia Collection Belle Arti
+Studio Italia Collection Mediolanum
+ARTSIMPLE HOLIDAYS
+ARTSIMPLE VALLEY
+ARTSIMPLE VERTICAL
+MARBURG CITY CHARM
+MARBURG MEMORIA
+ARTSIMPLE MIXTURE TEXTILE
+ARTSIMPLE MOZART
+ARTSIMPLE GEOMETRY
+HYGGE ROLL 77 COLORS
+ARTSIMPLE MIXTURE
+
+# ──────────────────────────────────────────────
+# 5. КРАСКА
+# ──────────────────────────────────────────────
+
+mka.paint краска для потолков
+mka.paint краска высокопрочная
+mka.paint краска интерьерная
+
+# ──────────────────────────────────────────────
+# 6. ПЛИНТУС
+# ──────────────────────────────────────────────
+
+Salag 60 белый
+Salag 60 серый
+Salag 60 чёрный
+Salag 65 белый
+Salag Alpha 65 чёрный Embossing
+Salag 80 белый
+Salag 80 серый
+Salag 80 чёрный
+Salag Alpha Aria Oak Дуб Ария
+Salag Alpha Noble Oak Дуб благородный
+Salag Alpha Royal Oak Дуб королевский
+Salag Alpha Unique Oak Дуб уникальный
+Salag Alpha 60 Solid Oak Массив дуба
