@@ -34,6 +34,7 @@ SPREADSHEET_URL = os.getenv(
     "https://docs.google.com/spreadsheets/d/1eD03b0iI-zKlQKbALnGjjHQmFhNdNZ30VL8c24fhSts/edit",
 )
 DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY")
+MANAGER_ID = os.getenv("MANAGER_ID", "356144365,5082277117")
 
 WAITING_VOICE, CONFIRM_DUPLICATE = 1, 2
 
@@ -155,7 +156,7 @@ async def _record_and_notify(update, context, name, data):
 
 
 async def _notify_manager(context, name, data):
-    manager_ids = os.getenv("MANAGER_ID", "")
+    manager_ids = os.getenv("MANAGER_ID", MANAGER_ID)
     if not manager_ids:
         return
     summary = build_summary(name, data)
