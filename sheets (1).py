@@ -27,8 +27,8 @@ def _today() -> str:
 
 
 def _date_cell() -> str:
-    """Значение для ячейки: апостроф спереди, чтобы Sheets хранил как текст."""
-    return "'" + _today()
+    """Дата для ячейки. Без апострофа — SheetBest хранит его буквально как символ."""
+    return _today()
 
 
 def v(val, default="—"):
@@ -69,7 +69,7 @@ def daily_count_today(name: str) -> int:
         # Имя могло быть записано как "Ytka" или "Ytka (отчёт №2)" — сверяем по началу.
         emp = str(row.get("Сотрудник", ""))
         # SheetBest может вернуть дату как с апострофом, так и без — нормализуем оба.
-        stored_date = str(row.get("Дата", "")).lstrip("'")
+        stored_date = str(row.get("Дата", "")).lstrip("'").strip()
         if stored_date == today and emp.startswith(name):
             cnt += 1
     return cnt
@@ -90,7 +90,7 @@ def write_all_sheets(name: str, data: dict, force: bool = False) -> dict:
 
     existing = daily_count_today(name)
     if existing > 0 and not force:
-        logger.warning("Отчёт от %s за %s уже есть (%d шт) — нужно подтверждение", name, DATE, existing)
+        logger.warning("Отчёт от %s за %s уже есть (%d шт) — нужно подтверждение", name, _today(), existing)
         return {"status": "duplicate"}
 
     report_no = existing + 1
@@ -114,8 +114,11 @@ def write_all_sheets(name: str, data: dict, force: bool = False) -> dict:
 
     # ── Clients Leads — все клиенты, дедуп внутри отчёта по имени ──
     seen, client_rows = set(), []
-    for c in clients:
-        key = v(c.get("name"))
+    for idx, c in enumerate(clients):
+        raw_name = c.get("name")
+        # Используем индекс как запасной ключ для анонимных клиентов (name=None),
+        # чтобы не схлопнуть двух разных анонимных посетителей в одного.
+        key = str(raw_name).strip() if raw_name else f"__anon_{idx}"
         if key in seen:
             continue
         seen.add(key)
@@ -138,8 +141,9 @@ def write_all_sheets(name: str, data: dict, force: bool = False) -> dict:
 
     # ── Tasks Follow-up ──
     seen, task_rows = set(), []
-    for t in tasks:
-        key = v(t.get("task"))
+    for idx, t in enumerate(tasks):
+        raw_task = t.get("task")
+        key = str(raw_task).strip() if raw_task else f"__anon_{idx}"
         if key in seen:
             continue
         seen.add(key)
@@ -158,8 +162,9 @@ def write_all_sheets(name: str, data: dict, force: bool = False) -> dict:
 
     # ── Issues Operations ──
     seen, op_rows = set(), []
-    for op in operations:
-        key = v(op.get("description"))
+    for idx, op in enumerate(operations):
+        raw_desc = op.get("description")
+        key = str(raw_desc).strip() if raw_desc else f"__anon_{idx}"
         if key in seen:
             continue
         seen.add(key)

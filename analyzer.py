@@ -395,10 +395,14 @@ def _dedup_clients(clients: list) -> list:
 
     seen, result = [], []
     for c in clients:
-        nm, iw = norm(c.get("name")), words(c.get("interest"))
+        raw_nm = c.get("name")
+        # None-имя нормализуется в "" — не сравниваем пустые имена между собой,
+        # иначе все анонимные клиенты схлопнутся в одного.
+        nm = norm(raw_nm) if raw_nm else None
+        iw = words(c.get("interest"))
         dup = False
         for snm, siw in seen:
-            if not nm or nm != snm:
+            if not nm or not snm or nm != snm:
                 continue
             # Имена совпали. Если interest пустой у кого-то — считаем дублем.
             # Иначе требуем существенное пересечение слов (≥50% меньшего набора).
@@ -406,7 +410,9 @@ def _dedup_clients(clients: list) -> list:
                 dup = True
                 break
             overlap = len(iw & siw)
-            if overlap >= max(1, min(len(iw), len(siw)) // 2):
+            # ceil(min/2) — порог ≥50% меньшего набора без truncation-ошибки.
+            min_sz = min(len(iw), len(siw))
+            if overlap >= max(1, (min_sz + 1) // 2):
                 dup = True
                 break
         if dup:
@@ -452,10 +458,10 @@ def _merge_chunks(parts: list[dict]) -> dict:
     daily = {
         "clients": len(clients),
         # Продажа = клиент оплатил (статус "купил"), сумма может отсутствовать.
-        "sales": sum(1 for c in clients if str(c.get("status", "")).startswith("куп")),
+        "sales": sum(1 for c in clients if str(c.get("status", "")).strip().startswith("куп")),
         "sales_amount": None,  # суммы агрегировать опасно — пусть проставит финальный проход ниже
         # КП = расчёты с суммой, но без оплаты (статус НЕ "купил").
-        "kp": sum(1 for c in clients if c.get("amount") and not str(c.get("status", "")).startswith("куп")),
+        "kp": sum(1 for c in clients if c.get("amount") and not str(c.get("status", "")).strip().startswith("куп")),
         "potential": join_field("potential"),
         "followup": join_field("followup"),
         "tasks": join_field("tasks"),
@@ -573,9 +579,17 @@ def analyze_report(text: str) -> dict:
             if is_long:
                 chunks = _split_into_chunks(text)
                 logger.info("Попытка %d: разбито на %d кусков", attempt + 1, len(chunks))
+                # При повторе из-за пропущенного клиента передаём feedback в каждый кусок.
+                chunk_feedback = None
+                if attempt > 0 and best and _missing_clients(best):
+                    chunk_feedback = (
+                        f"В прошлый раз ПОТЕРЯН клиент. Независимый подсчёт даёт "
+                        f"{independent} клиентов. Перечитай фрагмент СВЕРХУ ВНИЗ, "
+                        "не пропусти ни одного контакта."
+                    )
                 parts = []
                 for i, ch in enumerate(chunks):
-                    parts.append(_analyze_once(ch, is_chunk=True))
+                    parts.append(_analyze_once(ch, feedback=chunk_feedback, is_chunk=True))
                     logger.info("  кусок %d/%d разобран", i + 1, len(chunks))
                 data = _merge_chunks(parts)
             else:

@@ -125,6 +125,7 @@ async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.pop("pending_report", None)
     await update.message.reply_text("❌ Отчёт отменён.", reply_markup=MAIN_KB)
     return ConversationHandler.END
 
@@ -170,8 +171,13 @@ async def _notify_manager(context, name, data):
             logger.error("Не отправлено руководителю %s: %s", mid, e)
 
 
+def _get_name(update: Update) -> str:
+    """Имя пользователя Telegram. first_name может быть None для некоторых аккаунтов."""
+    return update.effective_user.first_name or update.effective_user.username or "Сотрудник"
+
+
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    name = update.effective_user.first_name
+    name = _get_name(update)
     await update.message.reply_text("🎙 Получил, распознаю...")
 
     try:
@@ -191,7 +197,10 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
 
     await update.message.reply_text("🤖 Анализирую отчёт...")
-    data = analyze_report(text)
+    import asyncio
+    # analyze_report делает синхронные HTTP-вызовы к LLM (до ~2 мин) —
+    # выносим в executor, чтобы не заморозить event loop для других пользователей.
+    data = await asyncio.get_running_loop().run_in_executor(None, analyze_report, text)
 
     if not data:
         await update.message.reply_text("⚠️ Не удалось разобрать отчёт. Попробуй ещё раз.",
@@ -216,7 +225,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def confirm_duplicate(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    name = update.effective_user.first_name
+    name = _get_name(update)
     data = context.user_data.get("pending_report")
 
     if update.message.text.startswith("✅") and data:
@@ -276,6 +285,8 @@ def main():
                     filters.Regex("^(✅ Это второй отчёт — добавить|🚫 Не записывать)$"),
                     confirm_duplicate,
                 ),
+                CommandHandler("cancel", cancel),
+                MessageHandler(filters.Regex("^❌ Отмена$"), cancel),
             ],
         },
         fallbacks=[
