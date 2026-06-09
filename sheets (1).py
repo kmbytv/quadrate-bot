@@ -39,6 +39,19 @@ def v(val, default="—"):
     return s if s and s.lower() != "none" else default
 
 
+def vt(val, max_len=350, default="—"):
+    """Как v(), но обрезает длинный текст чтобы ячейки не раздувались."""
+    s = v(val, default)
+    if s == default or len(s) <= max_len:
+        return s
+    # Обрезаем по последнему переносу строки или пробелу в пределах max_len.
+    cut = s[:max_len]
+    last_nl = cut.rfind("\n")
+    last_sp = cut.rfind(" ")
+    pos = last_nl if last_nl > max_len * 0.6 else (last_sp if last_sp > max_len * 0.6 else max_len)
+    return s[:pos].rstrip() + "…"
+
+
 def _post(tab: str, rows: list):
     """Шлёт строки в одну вкладку одним запросом."""
     if not rows:
@@ -110,10 +123,10 @@ def write_all_sheets(name: str, data: dict, force: bool = False) -> dict:
             "Продаж": v(daily.get("sales")),
             "Сумма продаж": v(daily.get("sales_amount")),
             "КП / счета": v(daily.get("kp")),
-            "Потенциальные сделки": v(daily.get("potential")),
-            "Follow-up": v(daily.get("followup")),
-            "Операционные задачи": v(daily.get("tasks")),
-            "Итог дня": v(daily.get("summary")),
+            "Потенциальные сделки": vt(daily.get("potential")),
+            "Follow-up": vt(daily.get("followup")),
+            "Операционные задачи": vt(daily.get("tasks")),
+            "Итог дня": vt(daily.get("summary"), max_len=500),
         },
     ])
 

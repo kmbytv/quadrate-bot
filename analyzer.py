@@ -447,13 +447,17 @@ def _merge_chunks(parts: list[dict]) -> dict:
     tasks = _dedup_by(tasks, "task")
     operations = _dedup_by(operations, "description")
 
-    # daily собираем агрегатами из слитых массивов, текстовые поля — склейкой.
-    def join_field(key):
+    # daily собираем агрегатами из слитых массивов, текстовые поля — уникальные строки.
+    def join_field(key, max_chars=600):
         vals = [str((p.get("daily") or {}).get(key)).strip()
                 for p in parts
                 if (p.get("daily") or {}).get(key)]
         vals = [v for v in vals if v and v.lower() != "none"]
-        return "\n".join(dict.fromkeys(vals)) or None  # dict.fromkeys убирает повторы
+        # Убираем дубли строк, склеиваем через перенос, обрезаем до max_chars.
+        merged = "\n".join(dict.fromkeys(vals))
+        if len(merged) > max_chars:
+            merged = merged[:max_chars].rsplit("\n", 1)[0] or merged[:max_chars]
+        return merged or None
 
     daily = {
         "clients": len(clients),
