@@ -453,7 +453,7 @@ def _merge_chunks(parts: list[dict]) -> dict:
                 for p in parts
                 if (p.get("daily") or {}).get(key)]
         vals = [v for v in vals if v and v.lower() != "none"]
-        return "; ".join(dict.fromkeys(vals)) or None  # dict.fromkeys убирает повторы
+        return "\n".join(dict.fromkeys(vals)) or None  # dict.fromkeys убирает повторы
 
     daily = {
         "clients": len(clients),

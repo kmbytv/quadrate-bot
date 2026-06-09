@@ -98,19 +98,24 @@ def write_all_sheets(name: str, data: dict, force: bool = False) -> dict:
     emp_label = name if report_no == 1 else f"{name} (отчёт №{report_no})"
     date_cell = _date_cell()
 
-    # ── Daily Reports — одна строка на отчёт ──
-    _post("Daily Reports", [{
-        "Дата": date_cell,
-        "Сотрудник": emp_label,
-        "Клиентов за день": v(daily.get("clients")),
-        "Продаж": v(daily.get("sales")),
-        "Сумма продаж": v(daily.get("sales_amount")),
-        "КП / счета": v(daily.get("kp")),
-        "Потенциальные сделки": v(daily.get("potential")),
-        "Follow-up": v(daily.get("followup")),
-        "Операционные задачи": v(daily.get("tasks")),
-        "Итог дня": v(daily.get("summary")),
-    }])
+    # ── Daily Reports — одна строка на отчёт + пустая строка-разделитель перед ней ──
+    _post("Daily Reports", [
+        {"Дата": "", "Сотрудник": "", "Клиентов за день": "", "Продаж": "",
+         "Сумма продаж": "", "КП / счета": "", "Потенциальные сделки": "",
+         "Follow-up": "", "Операционные задачи": "", "Итог дня": ""},
+        {
+            "Дата": date_cell,
+            "Сотрудник": emp_label,
+            "Клиентов за день": v(daily.get("clients")),
+            "Продаж": v(daily.get("sales")),
+            "Сумма продаж": v(daily.get("sales_amount")),
+            "КП / счета": v(daily.get("kp")),
+            "Потенциальные сделки": v(daily.get("potential")),
+            "Follow-up": v(daily.get("followup")),
+            "Операционные задачи": v(daily.get("tasks")),
+            "Итог дня": v(daily.get("summary")),
+        },
+    ])
 
     # ── Clients Leads — все клиенты, дедуп внутри отчёта по имени ──
     seen, client_rows = set(), []
