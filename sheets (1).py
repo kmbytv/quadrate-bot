@@ -21,8 +21,14 @@ logger = logging.getLogger(__name__)
 SHEETBEST_URL = os.getenv("SHEETBEST_URL")
 ENABLE_SALES_SUMMARY = os.getenv("ENABLE_SALES_SUMMARY", "false").lower() == "true"
 
-# Апостроф спереди — чтобы SheetBest/Sheets писал дату как ТЕКСТ, а не пересчитывал.
-DATE = "'" + datetime.now().strftime("%d.%m.%Y")
+def _today() -> str:
+    """Текущая дата в формате ДД.ММ.ГГГГ. Вызывается каждый раз, чтобы не протухала после полуночи."""
+    return datetime.now().strftime("%d.%m.%Y")
+
+
+def _date_cell() -> str:
+    """Значение для ячейки: апостроф спереди, чтобы Sheets хранил как текст."""
+    return "'" + _today()
 
 
 def v(val, default="—"):
@@ -57,11 +63,14 @@ def _fetch_tab(tab: str) -> list:
 def daily_count_today(name: str) -> int:
     """Сколько отчётов этого сотрудника уже есть за сегодня в Daily Reports."""
     rows = _fetch_tab("Daily Reports")
+    today = _today()
     cnt = 0
     for row in rows:
         # Имя могло быть записано как "Ytka" или "Ytka (отчёт №2)" — сверяем по началу.
         emp = str(row.get("Сотрудник", ""))
-        if row.get("Дата") == DATE and emp.startswith(name):
+        # SheetBest может вернуть дату как с апострофом, так и без — нормализуем оба.
+        stored_date = str(row.get("Дата", "")).lstrip("'")
+        if stored_date == today and emp.startswith(name):
             cnt += 1
     return cnt
 
@@ -87,10 +96,11 @@ def write_all_sheets(name: str, data: dict, force: bool = False) -> dict:
     report_no = existing + 1
     # При втором+ отчёте помечаем сотрудника, чтобы строки не выглядели дублем.
     emp_label = name if report_no == 1 else f"{name} (отчёт №{report_no})"
+    date_cell = _date_cell()
 
     # ── Daily Reports — одна строка на отчёт ──
     _post("Daily Reports", [{
-        "Дата": DATE,
+        "Дата": date_cell,
         "Сотрудник": emp_label,
         "Клиентов за день": v(daily.get("clients")),
         "Продаж": v(daily.get("sales")),
@@ -110,7 +120,7 @@ def write_all_sheets(name: str, data: dict, force: bool = False) -> dict:
             continue
         seen.add(key)
         client_rows.append({
-            "Дата": DATE,
+            "Дата": date_cell,
             "Сотрудник": emp_label,
             "Клиент": key,
             "Источник": v(c.get("source")),
@@ -123,8 +133,8 @@ def write_all_sheets(name: str, data: dict, force: bool = False) -> dict:
             "Срок follow-up": v(c.get("followup_date")),
             "Комментарий": v(c.get("comment")),
         })
-    for row in client_rows:
-        _post("Clients Leads", [row])
+    if client_rows:
+        _post("Clients Leads", client_rows)
 
     # ── Tasks Follow-up ──
     seen, task_rows = set(), []
@@ -134,7 +144,7 @@ def write_all_sheets(name: str, data: dict, force: bool = False) -> dict:
             continue
         seen.add(key)
         task_rows.append({
-            "Дата создания": DATE,
+            "Дата создания": date_cell,
             "Задача": key,
             "Связано с": v(t.get("related")),
             "Ответственный": v(t.get("responsible"), name),
@@ -143,8 +153,8 @@ def write_all_sheets(name: str, data: dict, force: bool = False) -> dict:
             "Статус": v(t.get("status")),
             "Комментарий": v(t.get("comment")),
         })
-    for row in task_rows:
-        _post("Tasks Follow-up", [row])
+    if task_rows:
+        _post("Tasks Follow-up", task_rows)
 
     # ── Issues Operations ──
     seen, op_rows = set(), []
@@ -154,7 +164,7 @@ def write_all_sheets(name: str, data: dict, force: bool = False) -> dict:
             continue
         seen.add(key)
         op_rows.append({
-            "Дата": DATE,
+            "Дата": date_cell,
             "Сотрудник": emp_label,
             "Категория": v(op.get("category")),
             "Описание": key,
@@ -162,8 +172,8 @@ def write_all_sheets(name: str, data: dict, force: bool = False) -> dict:
             "Статус": v(op.get("status")),
             "Следующее действие": v(op.get("next_action")),
         })
-    for row in op_rows:
-        _post("Issues Operations", [row])
+    if op_rows:
+        _post("Issues Operations", op_rows)
 
     # ── Sales Summary — задел, по умолчанию выключен ──
     if ENABLE_SALES_SUMMARY:
@@ -179,7 +189,7 @@ def update_sales_summary(name: str, daily: dict):
     """ЗАДЕЛ: агрегат продаж по дням. Включается через ENABLE_SALES_SUMMARY=true.
     Сейчас просто дописывает строку-срез; при желании расширишь до недель/месяцев."""
     _post("Sales Summary", [{
-        "Дата": DATE,
+        "Дата": _date_cell(),
         "Сотрудник": name,
         "Клиентов": v(daily.get("clients")),
         "Продаж": v(daily.get("sales")),

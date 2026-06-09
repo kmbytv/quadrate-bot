@@ -70,7 +70,7 @@ async def transcribe_voice(file_id: str, context: ContextTypes.DEFAULT_TYPE) -> 
             data = resp.json()
             return data["results"]["channels"][0]["alternatives"][0]["transcript"]
 
-    return await asyncio.get_event_loop().run_in_executor(None, _do)
+    return await asyncio.get_running_loop().run_in_executor(None, _do)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -288,7 +288,7 @@ def main():
     app.add_handler(conv)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
-    logger.info("Бот запущен. Модель: %s", os.getenv("LLM_MODEL", "openai/gpt-4o"))
+    logger.info("Бот запущен. Модель: %s", os.getenv("LLM_MODEL", "anthropic/claude-opus-4-5"))
     app.run_polling()
 
 

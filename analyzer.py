@@ -451,9 +451,11 @@ def _merge_chunks(parts: list[dict]) -> dict:
 
     daily = {
         "clients": len(clients),
-        "sales": sum(1 for c in clients if c.get("amount") and str(c.get("status", "")).startswith("куп")),
+        # Продажа = клиент оплатил (статус "купил"), сумма может отсутствовать.
+        "sales": sum(1 for c in clients if str(c.get("status", "")).startswith("куп")),
         "sales_amount": None,  # суммы агрегировать опасно — пусть проставит финальный проход ниже
-        "kp": sum(1 for c in clients if c.get("amount")),
+        # КП = расчёты с суммой, но без оплаты (статус НЕ "купил").
+        "kp": sum(1 for c in clients if c.get("amount") and not str(c.get("status", "")).startswith("куп")),
         "potential": join_field("potential"),
         "followup": join_field("followup"),
         "tasks": join_field("tasks"),
