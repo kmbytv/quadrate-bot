@@ -145,11 +145,11 @@ async def _record_and_notify(update, context, name, data):
             f"📊 Данные записаны (отчёт №{result.get('report_no', 1)} за сегодня).",
             reply_markup=MAIN_KB,
         )
+        await _notify_manager(context, name, data)
     except Exception as e:
         logger.error("Ошибка записи в Sheets: %s", e)
         await update.message.reply_text(f"⚠️ Ошибка записи: {e}", reply_markup=MAIN_KB)
 
-    await _notify_manager(context, name, data)
     return ConversationHandler.END
 
 

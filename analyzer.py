@@ -449,11 +449,20 @@ def _merge_chunks(parts: list[dict]) -> dict:
         vals = [v for v in vals if v and v.lower() != "none"]
         return "; ".join(dict.fromkeys(vals)) or None  # dict.fromkeys убирает повторы
 
+    # Продажа = статус начинается с "куп" (купил/купили), amount не обязателен.
+    # КП = есть сумма, но клиент НЕ купил (расчёт/думает/образцы).
+    # sales_amount — сумма только явно купивших; агрегируем осторожно.
+    sold_clients = [c for c in clients if str(c.get("status", "")).startswith("куп")]
+    kp_clients = [c for c in clients
+                  if c.get("amount") and not str(c.get("status", "")).startswith("куп")]
+    sold_amounts = [c["amount"] for c in sold_clients
+                    if isinstance(c.get("amount"), (int, float))]
+
     daily = {
         "clients": len(clients),
-        "sales": sum(1 for c in clients if c.get("amount") and str(c.get("status", "")).startswith("куп")),
-        "sales_amount": None,  # суммы агрегировать опасно — пусть проставит финальный проход ниже
-        "kp": sum(1 for c in clients if c.get("amount")),
+        "sales": len(sold_clients),
+        "sales_amount": sum(sold_amounts) if sold_amounts else None,
+        "kp": len(kp_clients),
         "potential": join_field("potential"),
         "followup": join_field("followup"),
         "tasks": join_field("tasks"),
@@ -506,9 +515,10 @@ def validate_and_fix(data: dict, independent_count: int = -1) -> dict:
     # daily.clients ВСЕГДА = факту в массиве (не врём в большую сторону).
     daily["clients"] = in_array
 
-    # KP по клиентам с суммой, если модель не заполнила.
+    # KP по клиентам с суммой но без покупки, если модель не заполнила.
     if not daily.get("kp"):
-        daily["kp"] = sum(1 for c in clients if c.get("amount"))
+        daily["kp"] = sum(1 for c in clients
+                          if c.get("amount") and not str(c.get("status", "")).startswith("куп"))
 
     # Галлюцинация суммы: > 10 млн — почти наверняка выдумано.
     if isinstance(daily.get("sales_amount"), (int, float)) and daily["sales_amount"] > 10_000_000:
@@ -528,11 +538,11 @@ def validate_and_fix(data: dict, independent_count: int = -1) -> dict:
         if op_events and op_events != len(operations):
             warnings.append(f"операций: меток {op_events} ≠ записей {len(operations)}")
 
-    # Чистим строки-заглушки → None во всех клиентских полях.
-    for c in clients:
-        for k, v in list(c.items()):
-            if isinstance(v, str) and v.strip() in ("—", "null", ""):
-                c[k] = None
+    # Чистим строки-заглушки → None во всех записях.
+    for item in [*clients, *tasks, *operations]:
+        for k, val in list(item.items()):
+            if isinstance(val, str) and val.strip() in ("—", "null", ""):
+                item[k] = None
 
     data.update({
         "daily": daily, "clients": clients, "tasks": tasks,
