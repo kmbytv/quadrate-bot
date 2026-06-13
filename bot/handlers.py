@@ -98,7 +98,7 @@ async def on_confirm(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await callback.message.edit_reply_markup(reply_markup=None)
 
     try:
-        append_return_row(
+        await append_return_row(
             date=today,
             time=data["time"],
             employee=employee,
