@@ -32,13 +32,16 @@ def v(val, default="—"):
     return s if s and s.lower() != "none" else default
 
 
-def _post(tab: str, rows: list, retries: int = 3, delay: float = 2.0):
-    """Шлёт строки в одну вкладку. При 429/402/5xx повторяет с паузой."""
+def _post(tab: str, rows: list, retries: int = 4, delay: float = 2.0):
+    """Шлёт ВСЕ строки во вкладку ОДНИМ запросом. При 429/402/5xx — повтор с паузой.
+
+    Важно: одна вкладка = один HTTP-запрос (батч). Раньше слали по строке —
+    из-за этого SheetBest упирался в лимит и отдавал 402, когда строк было много.
+    """
     if not rows:
         return
     url = f"{SHEETBEST_URL}/tabs/{tab}"
-    logger.info("POST %s — %d строк", url, len(rows))
-    last_err = None
+    logger.info("POST %s — %d строк (батч)", url, len(rows))
     for attempt in range(1, retries + 1):
         try:
             resp = httpx.post(url, json=rows, timeout=30)
@@ -46,34 +49,47 @@ def _post(tab: str, rows: list, retries: int = 3, delay: float = 2.0):
             resp.raise_for_status()
             return
         except httpx.HTTPStatusError as e:
-            last_err = e
+            code = e.response.status_code
+            # 4xx кроме 402/429 — это не временная ошибка, повтор бесполезен.
+            if code not in (402, 429) and 400 <= code < 500:
+                raise
             if attempt < retries:
-                logger.warning("Попытка %d/%d для %s: %s — повтор через %.0fs",
-                               attempt, retries, tab, e.response.status_code, delay)
+                logger.warning("Попытка %d/%d для %s: HTTP %s — повтор через %.0fs",
+                               attempt, retries, tab, code, delay)
                 time.sleep(delay)
                 delay *= 2
             else:
                 raise
         except Exception as e:
-            last_err = e
             if attempt < retries:
-                logger.warning("Попытка %d/%d для %s: %s — повтор", attempt, retries, tab, e)
+                logger.warning("Попытка %d/%d для %s: %s — повтор через %.0fs",
+                               attempt, retries, tab, e, delay)
                 time.sleep(delay)
                 delay *= 2
             else:
                 raise
 
 
-def _fetch_tab(tab: str) -> list:
-    """Читает вкладку. При любой ошибке возвращает [] — чтобы не блокировать запись."""
-    try:
-        resp = httpx.get(f"{SHEETBEST_URL}/tabs/{tab}", timeout=30)
-        resp.raise_for_status()
-        data = resp.json()
-        return data if isinstance(data, list) else []
-    except Exception as e:
-        logger.warning("Не удалось прочитать вкладку %s: %s", tab, e)
-        return []
+def _fetch_tab(tab: str, retries: int = 3, delay: float = 2.0) -> list:
+    """Читает вкладку с повтором. При окончательной ошибке возвращает [] —
+    чтобы не блокировать запись (fail-open)."""
+    url = f"{SHEETBEST_URL}/tabs/{tab}"
+    for attempt in range(1, retries + 1):
+        try:
+            resp = httpx.get(url, timeout=30)
+            resp.raise_for_status()
+            data = resp.json()
+            return data if isinstance(data, list) else []
+        except Exception as e:
+            if attempt < retries:
+                logger.warning("Чтение %s, попытка %d/%d: %s — повтор через %.0fs",
+                               tab, attempt, retries, e, delay)
+                time.sleep(delay)
+                delay *= 2
+            else:
+                logger.warning("Не удалось прочитать вкладку %s: %s", tab, e)
+                return []
+    return []
 
 
 def daily_count_today(name: str) -> int:
@@ -112,20 +128,6 @@ def write_all_sheets(name: str, data: dict, force: bool = False) -> dict:
     report_no = existing + 1
     emp_label = name if report_no == 1 else f"{name} (отчёт №{report_no})"
 
-    # ── Daily Reports — одна строка на отчёт ──
-    _post("Daily Reports", [{
-        "Дата": DATE,
-        "Сотрудник": emp_label,
-        "Клиентов за день": v(daily.get("clients")),
-        "Продаж": v(daily.get("sales")),
-        "Сумма продаж": v(daily.get("sales_amount")),
-        "КП / счета": v(daily.get("kp")),
-        "Потенциальные сделки": v(daily.get("potential")),
-        "Follow-up": v(daily.get("followup")),
-        "Операционные задачи": v(daily.get("tasks")),
-        "Итог дня": v(daily.get("summary")),
-    }])
-
     # ── Clients Leads — все клиенты, дедуп внутри отчёта по имени ──
     seen, client_rows = set(), []
     for c in clients:
@@ -147,8 +149,6 @@ def write_all_sheets(name: str, data: dict, force: bool = False) -> dict:
             "Срок follow-up": v(c.get("followup_date")),
             "Комментарий": v(c.get("comment")),
         })
-    for row in client_rows:
-        _post("Clients Leads", [row])
 
     # ── Tasks Follow-up ──
     seen, task_rows = set(), []
@@ -167,8 +167,6 @@ def write_all_sheets(name: str, data: dict, force: bool = False) -> dict:
             "Статус": v(t.get("status")),
             "Комментарий": v(t.get("comment")),
         })
-    for row in task_rows:
-        _post("Tasks Follow-up", [row])
 
     # ── Issues Operations ──
     seen, op_rows = set(), []
@@ -186,14 +184,32 @@ def write_all_sheets(name: str, data: dict, force: bool = False) -> dict:
             "Статус": v(op.get("status")),
             "Следующее действие": v(op.get("next_action")),
         })
-    for row in op_rows:
-        _post("Issues Operations", [row])
+
+    # Каждая вкладка — ОДНИМ батчем. Daily Reports пишем ПОСЛЕДНИМ:
+    # daily_count_today определяет дубль именно по Daily Reports, поэтому
+    # его строка должна появиться только если всё остальное уже записалось.
+    _post("Clients Leads", client_rows)
+    _post("Tasks Follow-up", task_rows)
+    _post("Issues Operations", op_rows)
 
     if ENABLE_SALES_SUMMARY:
         try:
             update_sales_summary(name, daily, DATE)
         except Exception as e:
             logger.warning("Sales Summary не обновлён: %s", e)
+
+    _post("Daily Reports", [{
+        "Дата": DATE,
+        "Сотрудник": emp_label,
+        "Клиентов за день": v(daily.get("clients")),
+        "Продаж": v(daily.get("sales")),
+        "Сумма продаж": v(daily.get("sales_amount")),
+        "КП / счета": v(daily.get("kp")),
+        "Потенциальные сделки": v(daily.get("potential")),
+        "Follow-up": v(daily.get("followup")),
+        "Операционные задачи": v(daily.get("tasks")),
+        "Итог дня": v(daily.get("summary")),
+    }])
 
     logger.info("Записано: сотрудник=%s, отчёт №%d", emp_label, report_no)
     return {"status": "ok", "report_no": report_no}

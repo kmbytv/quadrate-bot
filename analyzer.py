@@ -27,6 +27,7 @@ analyzer.py — ядро разбора голосового отчёта про
 import os
 import re
 import json
+import time
 import logging
 import httpx
 
@@ -269,22 +270,52 @@ COUNT_SYSTEM = """Ты считаешь КЛИЕНТОВ в отчёте про�
 #  НИЗКОУРОВНЕВЫЙ ВЫЗОВ МОДЕЛИ
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _call_llm(messages: list, max_tokens: int = 8000, temperature: float = 0.1) -> str:
-    """Один вызов модели. Возвращает очищенный от ``` текст ответа."""
-    with _client() as client:
-        resp = client.post(
-            f"{OPENROUTER_BASE}/chat/completions",
-            headers=_headers(),
-            json={
-                "model": MODEL,
-                "messages": messages,
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-            },
-        )
-        resp.raise_for_status()
-        raw = resp.json()["choices"][0]["message"]["content"].strip()
-    raw = re.sub(r"^```(?:json)?\s*", "", raw)
+def _call_llm(messages: list, max_tokens: int = 8000, temperature: float = 0.1,
+              retries: int = 3, delay: float = 3.0) -> str:
+    """Один вызов модели с повтором при сетевых сбоях / 429 / 5xx.
+    Возвращает очищенный от ``` текст ответа."""
+    raw = None
+    for attempt in range(1, retries + 1):
+        try:
+            with _client() as client:
+                resp = client.post(
+                    f"{OPENROUTER_BASE}/chat/completions",
+                    headers=_headers(),
+                    json={
+                        "model": MODEL,
+                        "messages": messages,
+                        "temperature": temperature,
+                        "max_tokens": max_tokens,
+                    },
+                )
+                resp.raise_for_status()
+                payload = resp.json()
+            # OpenRouter иногда возвращает 200 с телом-ошибкой без choices.
+            choices = payload.get("choices")
+            if not choices:
+                raise ValueError(f"Ответ без choices: {str(payload)[:200]}")
+            raw = (choices[0]["message"]["content"] or "").strip()
+            break
+        except httpx.HTTPStatusError as e:
+            code = e.response.status_code
+            if code not in (429,) and 400 <= code < 500:
+                raise  # 4xx (кроме 429) — повтор не поможет
+            if attempt < retries:
+                logger.warning("LLM попытка %d/%d: HTTP %s — повтор через %.0fs",
+                               attempt, retries, code, delay)
+                time.sleep(delay)
+                delay *= 2
+            else:
+                raise
+        except Exception as e:
+            if attempt < retries:
+                logger.warning("LLM попытка %d/%d: %s — повтор через %.0fs",
+                               attempt, retries, e, delay)
+                time.sleep(delay)
+                delay *= 2
+            else:
+                raise
+    raw = re.sub(r"^```(?:json)?\s*", "", raw or "")
     raw = re.sub(r"\s*```$", "", raw).strip()
     return raw
 
