@@ -3,6 +3,7 @@ sheets.py — запись разобранного отчёта в Google Sheet
 """
 
 import os
+import time
 import logging
 import httpx
 from datetime import datetime
@@ -31,15 +32,36 @@ def v(val, default="—"):
     return s if s and s.lower() != "none" else default
 
 
-def _post(tab: str, rows: list):
-    """Шлёт строки в одну вкладку одним запросом."""
+def _post(tab: str, rows: list, retries: int = 3, delay: float = 2.0):
+    """Шлёт строки в одну вкладку. При 429/402/5xx повторяет с паузой."""
     if not rows:
         return
     url = f"{SHEETBEST_URL}/tabs/{tab}"
-    logger.info("POST %s — %d строк: %s", url, len(rows), rows)
-    resp = httpx.post(url, json=rows, timeout=30)
-    logger.info("SheetBest ответ %s: %s", resp.status_code, resp.text[:300])
-    resp.raise_for_status()
+    logger.info("POST %s — %d строк", url, len(rows))
+    last_err = None
+    for attempt in range(1, retries + 1):
+        try:
+            resp = httpx.post(url, json=rows, timeout=30)
+            logger.info("SheetBest ответ %s: %s", resp.status_code, resp.text[:200])
+            resp.raise_for_status()
+            return
+        except httpx.HTTPStatusError as e:
+            last_err = e
+            if attempt < retries:
+                logger.warning("Попытка %d/%d для %s: %s — повтор через %.0fs",
+                               attempt, retries, tab, e.response.status_code, delay)
+                time.sleep(delay)
+                delay *= 2
+            else:
+                raise
+        except Exception as e:
+            last_err = e
+            if attempt < retries:
+                logger.warning("Попытка %d/%d для %s: %s — повтор", attempt, retries, tab, e)
+                time.sleep(delay)
+                delay *= 2
+            else:
+                raise
 
 
 def _fetch_tab(tab: str) -> list:
