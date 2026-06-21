@@ -276,7 +276,13 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _make_req(read_timeout=60):
-    kw = dict(http_version="1.1", connect_timeout=30, read_timeout=read_timeout, write_timeout=30)
+    kw = dict(
+        connect_timeout=30,
+        read_timeout=read_timeout,
+        write_timeout=30,
+        http_version="1.1",
+        httpx_kwargs={"http1": True, "http2": False},
+    )
     if PROXY_URL:
         kw["proxy"] = PROXY_URL
     return HTTPXRequest(**kw)
