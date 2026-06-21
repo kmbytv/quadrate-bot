@@ -275,13 +275,20 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
 #  ЗАПУСК
 # ─────────────────────────────────────────────────────────────────────────────
 
-def main():
-    builder = Application.builder().token(TOKEN)
+def _make_req(read_timeout=60):
+    kw = dict(http_version="1.1", connect_timeout=30, read_timeout=read_timeout, write_timeout=30)
     if PROXY_URL:
-        def _req(**kw):
-            return HTTPXRequest(http_version="1.1", proxy=PROXY_URL,
-                                connect_timeout=30, write_timeout=30, **kw)
-        builder = builder.request(_req(read_timeout=60)).get_updates_request(_req(read_timeout=60))
+        kw["proxy"] = PROXY_URL
+    return HTTPXRequest(**kw)
+
+
+def main():
+    builder = (
+        Application.builder()
+        .token(TOKEN)
+        .request(_make_req())
+        .get_updates_request(_make_req())
+    )
     app = builder.build()
 
     conv = ConversationHandler(
