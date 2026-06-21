@@ -129,12 +129,13 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
-async def _record_and_notify(update, context, name, data):
+async def _record_and_notify(update, context, name, data, voice_file_id=None):
     """Запись в таблицу + уведомление руководителю. Возвращает следующее состояние."""
     try:
         result = write_all_sheets(name, data)
         if result.get("status") == "duplicate":
             context.user_data["pending_report"] = data
+            context.user_data["pending_voice_file_id"] = voice_file_id
             await update.message.reply_text(
                 f"⚠️ Отчёт от {name} за сегодня уже есть в таблице.\n"
                 f"Если это ВТОРОЙ отчёт за день — добавлю отдельно, первый не трону.",
@@ -145,7 +146,7 @@ async def _record_and_notify(update, context, name, data):
             f"📊 Данные записаны (отчёт №{result.get('report_no', 1)} за сегодня).",
             reply_markup=MAIN_KB,
         )
-        await _notify_manager(context, name, data)
+        await _notify_manager(context, name, data, voice_file_id)
     except Exception as e:
         logger.error("Ошибка записи в Sheets: %s", e)
         await update.message.reply_text(f"⚠️ Ошибка записи: {e}", reply_markup=MAIN_KB)
@@ -153,7 +154,7 @@ async def _record_and_notify(update, context, name, data):
     return ConversationHandler.END
 
 
-async def _notify_manager(context, name, data):
+async def _notify_manager(context, name, data, voice_file_id=None):
     manager_ids = os.getenv("MANAGER_ID", "")
     if not manager_ids:
         return
@@ -164,18 +165,26 @@ async def _notify_manager(context, name, data):
     elif data.get("_warnings"):
         text += "\n\n⚠️ Проверить:\n" + "\n".join(f"• {w}" for w in data["_warnings"])
     for mid in manager_ids.split(","):
+        chat_id = int(mid.strip())
         try:
-            await context.bot.send_message(chat_id=int(mid.strip()), text=text)
+            await context.bot.send_message(chat_id=chat_id, text=text)
         except Exception as e:
             logger.error("Не отправлено руководителю %s: %s", mid, e)
+        if voice_file_id:
+            try:
+                await context.bot.send_voice(chat_id=chat_id, voice=voice_file_id)
+            except Exception as e:
+                logger.error("Не отправлено голосовое руководителю %s: %s", mid, e)
 
 
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = update.effective_user.first_name
     await update.message.reply_text("🎙 Получил, распознаю...")
 
+    voice_file_id = update.message.voice.file_id  # сохраняем до любых await
+
     try:
-        text = await transcribe_voice(update.message.voice.file_id, context)
+        text = await transcribe_voice(voice_file_id, context)
     except Exception as e:
         logger.error("Ошибка транскрибации: %s", e)
         await update.message.reply_text(f"⚠️ Не удалось распознать голосовое.\nОшибка: {e}",
@@ -212,12 +221,13 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "⚠️ Проверь вручную:\n" + "\n".join(f"• {w}" for w in data["_warnings"])
         )
 
-    return await _record_and_notify(update, context, name, data)
+    return await _record_and_notify(update, context, name, data, voice_file_id)
 
 
 async def confirm_duplicate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = update.effective_user.first_name
     data = context.user_data.get("pending_report")
+    voice_file_id = context.user_data.get("pending_voice_file_id")
 
     if update.message.text.startswith("✅") and data:
         try:
@@ -226,7 +236,7 @@ async def confirm_duplicate(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"📊 Добавлено как отчёт №{result.get('report_no', 2)} за сегодня.",
                 reply_markup=MAIN_KB,
             )
-            await _notify_manager(context, name, data)
+            await _notify_manager(context, name, data, voice_file_id)
         except Exception as e:
             logger.error("Ошибка записи (force): %s", e)
             await update.message.reply_text(f"⚠️ Ошибка записи: {e}", reply_markup=MAIN_KB)
@@ -234,6 +244,7 @@ async def confirm_duplicate(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("🚫 Повторная запись отменена.", reply_markup=MAIN_KB)
 
     context.user_data.pop("pending_report", None)
+    context.user_data.pop("pending_voice_file_id", None)
     return ConversationHandler.END
 
 
