@@ -16,6 +16,7 @@ from telegram.ext import (
     Application, CommandHandler, MessageHandler,
     filters, ContextTypes, ConversationHandler,
 )
+import httpx as _httpx
 from telegram.request import HTTPXRequest
 from dotenv import load_dotenv
 
@@ -129,13 +130,12 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
-async def _record_and_notify(update, context, name, data, voice_file_id=None):
+async def _record_and_notify(update, context, name, data):
     """Запись в таблицу + уведомление руководителю. Возвращает следующее состояние."""
     try:
         result = write_all_sheets(name, data)
         if result.get("status") == "duplicate":
             context.user_data["pending_report"] = data
-            context.user_data["pending_voice_file_id"] = voice_file_id
             await update.message.reply_text(
                 f"⚠️ Отчёт от {name} за сегодня уже есть в таблице.\n"
                 f"Если это ВТОРОЙ отчёт за день — добавлю отдельно, первый не трону.",
@@ -146,7 +146,7 @@ async def _record_and_notify(update, context, name, data, voice_file_id=None):
             f"📊 Данные записаны (отчёт №{result.get('report_no', 1)} за сегодня).",
             reply_markup=MAIN_KB,
         )
-        await _notify_manager(context, name, data, voice_file_id)
+        await _notify_manager(context, name, data)
     except Exception as e:
         logger.error("Ошибка записи в Sheets: %s", e)
         await update.message.reply_text(f"⚠️ Ошибка записи: {e}", reply_markup=MAIN_KB)
@@ -154,7 +154,7 @@ async def _record_and_notify(update, context, name, data, voice_file_id=None):
     return ConversationHandler.END
 
 
-async def _notify_manager(context, name, data, voice_file_id=None):
+async def _notify_manager(context, name, data):
     manager_ids = os.getenv("MANAGER_ID", "")
     if not manager_ids:
         return
@@ -165,26 +165,18 @@ async def _notify_manager(context, name, data, voice_file_id=None):
     elif data.get("_warnings"):
         text += "\n\n⚠️ Проверить:\n" + "\n".join(f"• {w}" for w in data["_warnings"])
     for mid in manager_ids.split(","):
-        chat_id = int(mid.strip())
         try:
-            await context.bot.send_message(chat_id=chat_id, text=text)
+            await context.bot.send_message(chat_id=int(mid.strip()), text=text)
         except Exception as e:
             logger.error("Не отправлено руководителю %s: %s", mid, e)
-        if voice_file_id:
-            try:
-                await context.bot.send_voice(chat_id=chat_id, voice=voice_file_id)
-            except Exception as e:
-                logger.error("Не отправлено голосовое руководителю %s: %s", mid, e)
 
 
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = update.effective_user.first_name
     await update.message.reply_text("🎙 Получил, распознаю...")
 
-    voice_file_id = update.message.voice.file_id  # сохраняем до любых await
-
     try:
-        text = await transcribe_voice(voice_file_id, context)
+        text = await transcribe_voice(update.message.voice.file_id, context)
     except Exception as e:
         logger.error("Ошибка транскрибации: %s", e)
         await update.message.reply_text(f"⚠️ Не удалось распознать голосовое.\nОшибка: {e}",
@@ -221,13 +213,12 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "⚠️ Проверь вручную:\n" + "\n".join(f"• {w}" for w in data["_warnings"])
         )
 
-    return await _record_and_notify(update, context, name, data, voice_file_id)
+    return await _record_and_notify(update, context, name, data)
 
 
 async def confirm_duplicate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = update.effective_user.first_name
     data = context.user_data.get("pending_report")
-    voice_file_id = context.user_data.get("pending_voice_file_id")
 
     if update.message.text.startswith("✅") and data:
         try:
@@ -236,7 +227,7 @@ async def confirm_duplicate(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"📊 Добавлено как отчёт №{result.get('report_no', 2)} за сегодня.",
                 reply_markup=MAIN_KB,
             )
-            await _notify_manager(context, name, data, voice_file_id)
+            await _notify_manager(context, name, data)
         except Exception as e:
             logger.error("Ошибка записи (force): %s", e)
             await update.message.reply_text(f"⚠️ Ошибка записи: {e}", reply_markup=MAIN_KB)
@@ -244,7 +235,6 @@ async def confirm_duplicate(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("🚫 Повторная запись отменена.", reply_markup=MAIN_KB)
 
     context.user_data.pop("pending_report", None)
-    context.user_data.pop("pending_voice_file_id", None)
     return ConversationHandler.END
 
 
@@ -274,26 +264,38 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
 # ─────────────────────────────────────────────────────────────────────────────
 #  ЗАПУСК
 # ─────────────────────────────────────────────────────────────────────────────
+class _FixedRequest(HTTPXRequest):
+    """PTB v22 с принудительным HTTP/1.1 — HTTP/2 не работает на этом сервере."""
 
-def _make_req(read_timeout=60):
-    kw = dict(
-        connect_timeout=30,
-        read_timeout=read_timeout,
-        write_timeout=30,
-        http_version="1.1",
-        httpx_kwargs={"http1": True, "http2": False},
-    )
-    if PROXY_URL:
-        kw["proxy"] = PROXY_URL
-    return HTTPXRequest(**kw)
+    async def initialize(self) -> None:
+        await super().initialize()
+        # Заменяем клиент созданный родителем на явный HTTP/1.1
+        if hasattr(self, "_client") and self._client is not None:
+            try:
+                await self._client.aclose()
+            except Exception:
+                pass
+        kw: dict = dict(
+            http1=True,
+            http2=False,
+            timeout=_httpx.Timeout(connect=30, read=60, write=30, pool=5.0),
+            follow_redirects=True,
+        )
+        if PROXY_URL:
+            kw["proxy"] = PROXY_URL
+        self._client = _httpx.AsyncClient(**kw)
+
+
+def _request(read_timeout: float = 60) -> _FixedRequest:
+    return _FixedRequest(connect_timeout=30, read_timeout=read_timeout, write_timeout=30)
 
 
 def main():
     builder = (
         Application.builder()
         .token(TOKEN)
-        .request(_make_req())
-        .get_updates_request(_make_req())
+        .request(_request())
+        .get_updates_request(_request())
     )
     app = builder.build()
 
