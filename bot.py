@@ -265,25 +265,14 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
 #  ЗАПУСК
 # ─────────────────────────────────────────────────────────────────────────────
 class _FixedRequest(HTTPXRequest):
-    """PTB v22 с принудительным HTTP/1.1 — HTTP/2 не работает на этом сервере."""
+    """PTB v22: патчим _client_kwargs чтобы отключить HTTP/2 на уровне httpx."""
 
-    async def initialize(self) -> None:
-        await super().initialize()
-        # Заменяем клиент созданный родителем на явный HTTP/1.1
-        if hasattr(self, "_client") and self._client is not None:
-            try:
-                await self._client.aclose()
-            except Exception:
-                pass
-        kw: dict = dict(
-            http1=True,
-            http2=False,
-            timeout=_httpx.Timeout(connect=30, read=60, write=30, pool=5.0),
-            follow_redirects=True,
-        )
-        if PROXY_URL:
-            kw["proxy"] = PROXY_URL
-        self._client = _httpx.AsyncClient(**kw)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # PTB v22 хранит kwargs для httpx в _client_kwargs и строит клиент в __init__.
+        # Переопределяем http1/http2 и пересобираем клиент.
+        self._client_kwargs = {**self._client_kwargs, "http1": True, "http2": False}
+        self._client = self._build_client()
 
 
 def _request(read_timeout: float = 60) -> _FixedRequest:
