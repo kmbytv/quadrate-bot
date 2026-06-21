@@ -280,9 +280,13 @@ def _request():
 
 
 def main():
-    builder = Application.builder().token(TOKEN)
-    if PROXY_URL:
-        builder = builder.request(_request()).get_updates_request(_request())
+    builder = Application.builder().token(TOKEN).request(
+        HTTPXRequest(http_version="1.1", proxy=PROXY_URL,
+                     connect_timeout=30, read_timeout=60, write_timeout=30)
+    ).get_updates_request(
+        HTTPXRequest(http_version="1.1", proxy=PROXY_URL,
+                     connect_timeout=30, read_timeout=60, write_timeout=30)
+    )
     app = builder.build()
 
     conv = ConversationHandler(
