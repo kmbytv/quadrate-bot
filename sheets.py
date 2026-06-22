@@ -1,5 +1,11 @@
 """
 sheets.py — запись разобранного отчёта в Google Sheets через SheetBest.
+
+Структура новой таблицы (v1.1):
+  • Сводка дня          — одна строка на отчёт (главный экран владельца)
+  • Клиенты-сделки      — одна строка на каждого клиента
+  • Операционные задачи — задачи не по клиентам (склад, поставщики, поручения)
+  • Активности          — что делал продавец кроме продаж
 """
 
 import os
@@ -11,11 +17,10 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 SHEETBEST_URL = os.getenv("SHEETBEST_URL")
-ENABLE_SALES_SUMMARY = os.getenv("ENABLE_SALES_SUMMARY", "false").lower() == "true"
 
 
 def _today() -> str:
-    """Текущая дата как текст для ячейки (апостроф — чтобы Sheets не пересчитывал)."""
+    """Текущая дата с апострофом — чтобы Sheets не пересчитывал как формулу."""
     return "'" + datetime.now().strftime("%d.%m.%Y")
 
 
@@ -33,11 +38,7 @@ def v(val, default="—"):
 
 
 def _post(tab: str, rows: list, retries: int = 4, delay: float = 2.0):
-    """Шлёт ВСЕ строки во вкладку ОДНИМ запросом. При 429/402/5xx — повтор с паузой.
-
-    Важно: одна вкладка = один HTTP-запрос (батч). Раньше слали по строке —
-    из-за этого SheetBest упирался в лимит и отдавал 402, когда строк было много.
-    """
+    """Шлёт ВСЕ строки во вкладку ОДНИМ запросом. При 429/402/5xx — повтор с паузой."""
     if not rows:
         return
     url = f"{SHEETBEST_URL}/tabs/{tab}"
@@ -50,7 +51,6 @@ def _post(tab: str, rows: list, retries: int = 4, delay: float = 2.0):
             return
         except httpx.HTTPStatusError as e:
             code = e.response.status_code
-            # 4xx кроме 402/429 — это не временная ошибка, повтор бесполезен.
             if code not in (402, 429) and 400 <= code < 500:
                 raise
             if attempt < retries:
@@ -71,8 +71,7 @@ def _post(tab: str, rows: list, retries: int = 4, delay: float = 2.0):
 
 
 def _fetch_tab(tab: str, retries: int = 3, delay: float = 2.0) -> list:
-    """Читает вкладку с повтором. При окончательной ошибке возвращает [] —
-    чтобы не блокировать запись (fail-open)."""
+    """Читает вкладку с повтором. При окончательной ошибке возвращает []."""
     url = f"{SHEETBEST_URL}/tabs/{tab}"
     for attempt in range(1, retries + 1):
         try:
@@ -93,12 +92,12 @@ def _fetch_tab(tab: str, retries: int = 3, delay: float = 2.0) -> list:
 
 
 def daily_count_today(name: str) -> int:
-    """Сколько отчётов этого сотрудника уже есть за сегодня в Daily Reports."""
-    rows = _fetch_tab("Daily Reports")
-    today = _today_plain()  # без апострофа — SheetBest возвращает без него
+    """Сколько отчётов этого сотрудника уже есть за сегодня в «Сводке дня»."""
+    rows = _fetch_tab("Сводка дня")
+    today = _today_plain()
     cnt = 0
     for row in rows:
-        date_val = str(row.get("Дата", "")).lstrip("'")  # убираем апостроф если есть
+        date_val = str(row.get("Дата", "")).lstrip("'")
         emp = str(row.get("Сотрудник", ""))
         if date_val == today and emp.startswith(name):
             cnt += 1
@@ -109,11 +108,11 @@ def write_all_sheets(name: str, data: dict, force: bool = False) -> dict:
     """
     Пишет данные во все вкладки.
       {"status": "ok", "report_no": N}  — записано
-      {"status": "duplicate"}           — отчёт за сегодня уже есть, нужно подтверждение
+      {"status": "duplicate"}           — отчёт за сегодня уже есть
 
-    force=True — записать несмотря на уже существующий отчёт (второй отчёт за день).
+    force=True — записать несмотря на дубль (второй отчёт за день).
     """
-    DATE = _today()  # вычисляем здесь, а не при старте модуля
+    DATE = _today()
 
     daily = data.get("daily", {})
     clients = data.get("clients", [])
@@ -128,29 +127,39 @@ def write_all_sheets(name: str, data: dict, force: bool = False) -> dict:
     report_no = existing + 1
     emp_label = name if report_no == 1 else f"{name} (отчёт №{report_no})"
 
-    # ── Clients Leads — все клиенты, дедуп внутри отчёта по имени ──
+    # ── Клиенты-сделки ──
     seen, client_rows = set(), []
-    for c in clients:
+    for i, c in enumerate(clients, start=1):
         key = v(c.get("name"))
         if key in seen:
             continue
         seen.add(key)
+        discount_val = c.get("discount")
+        discount_str = f"{discount_val}%" if isinstance(discount_val, (int, float)) else v(discount_val)
         client_rows.append({
             "Дата": DATE,
             "Сотрудник": emp_label,
-            "Клиент": key,
+            "№ клиента": i,
+            "Описание клиента": key,
             "Источник": v(c.get("source")),
-            "Что интересовало": v(c.get("interest")),
-            "Площадь / объем": v(c.get("area")),
-            "Сумма": v(c.get("amount")),
-            "Скидка": v(c.get("discount")),
-            "Статус": v(c.get("status")),
+            "Дизайнер": v(c.get("designer")),
+            "Тип клиента": v(c.get("client_type")),
+            "Категория товара": v(c.get("category")),
+            "Конкретика (бренд / коллекция)": v(c.get("specifics")),
+            "Площадь, м²": v(c.get("area")),
+            "Этап воронки": v(c.get("stage")),
+            "Сумма, ₽": v(c.get("amount")),
+            "Способ оплаты": v(c.get("payment_method")),
+            "Скидка, %": discount_str,
+            "Причина скидки": v(c.get("discount_reason")),
+            "Причина отказа": v(c.get("refusal_reason")),
+            "Реакция клиента": v(c.get("client_reaction")),
             "Следующий шаг": v(c.get("next_step")),
             "Срок follow-up": v(c.get("followup_date")),
-            "Комментарий": v(c.get("comment")),
+            "Статус follow-up": v(c.get("followup_status")),
         })
 
-    # ── Tasks Follow-up ──
+    # ── Операционные задачи ──
     seen, task_rows = set(), []
     for t in tasks:
         key = v(t.get("task"))
@@ -168,14 +177,14 @@ def write_all_sheets(name: str, data: dict, force: bool = False) -> dict:
             "Комментарий": v(t.get("comment")),
         })
 
-    # ── Issues Operations ──
-    seen, op_rows = set(), []
+    # ── Активности ──
+    seen, activity_rows = set(), []
     for op in operations:
         key = v(op.get("description"))
         if key in seen:
             continue
         seen.add(key)
-        op_rows.append({
+        activity_rows.append({
             "Дата": DATE,
             "Сотрудник": emp_label,
             "Категория": v(op.get("category")),
@@ -185,44 +194,36 @@ def write_all_sheets(name: str, data: dict, force: bool = False) -> dict:
             "Следующее действие": v(op.get("next_action")),
         })
 
-    # Каждая вкладка — ОДНИМ батчем. Daily Reports пишем ПОСЛЕДНИМ:
-    # daily_count_today определяет дубль именно по Daily Reports, поэтому
-    # его строка должна появиться только если всё остальное уже записалось.
-    _post("Clients Leads", client_rows)
-    _post("Tasks Follow-up", task_rows)
-    _post("Issues Operations", op_rows)
+    # Считаем производные метрики для сводки
+    sold_clients = [c for c in clients if c.get("stage") == "Купил"]
+    total = len(clients)
+    sales_count = len(sold_clients)
+    conversion = f"{round(sales_count / total * 100)}%" if total > 0 else "—"
+    sold_amounts = [c["amount"] for c in sold_clients if isinstance(c.get("amount"), (int, float))]
+    sales_amount = sum(sold_amounts) if sold_amounts else None
+    avg_check = round(sales_amount / sales_count) if sales_amount and sales_count > 0 else None
 
-    if ENABLE_SALES_SUMMARY:
-        try:
-            update_sales_summary(name, daily, DATE)
-        except Exception as e:
-            logger.warning("Sales Summary не обновлён: %s", e)
+    # Клиенты, задачи, активности — перед Сводкой дня
+    _post("Клиенты-сделки", client_rows)
+    _post("Операционные задачи", task_rows)
+    _post("Активности", activity_rows)
 
-    _post("Daily Reports", [{
+    # Сводка дня — ПОСЛЕДНЕЙ (по ней определяется дубль)
+    _post("Сводка дня", [{
         "Дата": DATE,
         "Сотрудник": emp_label,
-        "Клиентов за день": v(daily.get("clients")),
-        "Продаж": v(daily.get("sales")),
-        "Сумма продаж": v(daily.get("sales_amount")),
+        "Клиентов всего": v(total if total > 0 else None),
+        "Купили": v(sales_count),
+        "Конверсия %": conversion,
         "КП / счета": v(daily.get("kp")),
+        "Сумма продаж ₽": v(sales_amount),
+        "Средний чек": v(avg_check),
+        "Главное событие": v(daily.get("main_event")),
+        "Наблюдение дня": v(daily.get("observation")),
         "Потенциальные сделки": v(daily.get("potential")),
-        "Follow-up": v(daily.get("followup")),
-        "Операционные задачи": v(daily.get("tasks")),
-        "Итог дня": v(daily.get("summary")),
+        "Follow-up на завтра": v(daily.get("followup")),
+        "Операционные задачи (итог)": v(daily.get("tasks")),
     }])
 
     logger.info("Записано: сотрудник=%s, отчёт №%d", emp_label, report_no)
     return {"status": "ok", "report_no": report_no}
-
-
-def update_sales_summary(name: str, daily: dict, DATE: str = None):
-    if DATE is None:
-        DATE = _today()
-    _post("Sales Summary", [{
-        "Дата": DATE,
-        "Сотрудник": name,
-        "Клиентов": v(daily.get("clients")),
-        "Продаж": v(daily.get("sales")),
-        "Сумма": v(daily.get("sales_amount")),
-        "КП": v(daily.get("kp")),
-    }])

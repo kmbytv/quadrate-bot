@@ -32,7 +32,7 @@ TOKEN = os.getenv("BOT_TOKEN")
 PROXY_URL = os.getenv("PROXY_URL")
 SPREADSHEET_URL = os.getenv(
     "SPREADSHEET_URL",
-    "https://docs.google.com/spreadsheets/d/1eD03b0iI-zKlQKbALnGjjHQmFhNdNZ30VL8c24fhSts/edit",
+    "https://docs.google.com/spreadsheets/d/1LU9c8Ae7yctKRMzBDbwPO3GjRRBa8CQPTg2tjgUiFtY/edit",
 )
 DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY")
 
@@ -83,24 +83,41 @@ def fmt(val):
 
 def build_summary(name: str, data: dict) -> str:
     daily = data.get("daily", {})
-    return (
-        f"✅ Отчёт разобран!\n"
-        f"{'─' * 25}\n"
-        f"👤 {name}\n"
-        f"📊 Клиентов: {fmt(daily.get('clients'))}\n"
-        f"💰 Продаж: {fmt(daily.get('sales'))} на {fmt(daily.get('sales_amount'))} ₽\n"
-        f"📋 КП/счета: {fmt(daily.get('kp'))}\n"
-        f"🤝 Потенциальные: {fmt(daily.get('potential'))}\n"
-        f"🔄 Follow-up: {fmt(daily.get('followup'))}\n"
-        f"⚙️ Задачи: {fmt(daily.get('tasks'))}\n"
-        f"📌 Итог: {fmt(daily.get('summary'))}\n"
-        f"{'─' * 25}\n"
-        f"👥 Клиентов в лиде: {len(data.get('clients', []))}\n"
-        f"📝 Задач: {len(data.get('tasks', []))}\n"
-        f"🔧 Операций: {len(data.get('operations', []))}\n"
-        f"{'─' * 25}\n"
-        f"📊 Таблица: {SPREADSHEET_URL}"
-    )
+    clients = data.get("clients", [])
+    sold = [c for c in clients if c.get("stage") == "Купил"]
+    total = len(clients)
+    sales_count = len(sold)
+    conversion = f"{round(sales_count / total * 100)}%" if total > 0 else "—"
+    sold_amounts = [c["amount"] for c in sold if isinstance(c.get("amount"), (int, float))]
+    sales_amount = sum(sold_amounts) if sold_amounts else None
+    avg_check = round(sales_amount / sales_count) if sales_amount and sales_count > 0 else None
+
+    lines = [
+        f"✅ Отчёт разобран!",
+        f"{'─' * 25}",
+        f"👤 {name}",
+        f"📊 Клиентов: {total}  |  Купили: {sales_count}  |  Конверсия: {conversion}",
+    ]
+    if sales_amount:
+        lines.append(f"💰 Сумма: {sales_amount:,} ₽  |  Средний чек: {avg_check:,} ₽")
+    lines += [
+        f"📋 КП/счета: {fmt(daily.get('kp'))}",
+        f"{'─' * 25}",
+    ]
+    if daily.get("main_event"):
+        lines.append(f"⭐ {daily['main_event']}")
+    if daily.get("observation"):
+        lines.append(f"💡 {daily['observation']}")
+    lines += [
+        f"🤝 Потенциальные: {fmt(daily.get('potential'))}",
+        f"🔄 Follow-up: {fmt(daily.get('followup'))}",
+        f"⚙️ Задачи: {fmt(daily.get('tasks'))}",
+        f"{'─' * 25}",
+        f"📝 Задач: {len(data.get('tasks', []))}  |  Активностей: {len(data.get('operations', []))}",
+        f"{'─' * 25}",
+        f"📊 Таблица: {SPREADSHEET_URL}",
+    ]
+    return "\n".join(lines)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -27,7 +27,6 @@ analyzer.py — ядро разбора голосового отчёта про
 import os
 import re
 import json
-import time
 import logging
 import httpx
 
@@ -136,6 +135,8 @@ SCHEMA = """━━━ СТРУКТУРА JSON (верни ТОЛЬКО вали�
     "sales": int,              // число клиентов, оплативших сегодня
     "sales_amount": int|null,  // сумма рублей, только если суммы явно названы
     "kp": int,                 // число расчётов/КП (с суммой, но без оплаты)
+    "main_event": "строка|null",  // главное событие дня (самое важное)
+    "observation": "строка|null", // наблюдение дня — инсайт, что заметил продавец
     "potential": "строка",     // кто и что может купить, с деталями
     "followup": "строка",      // кому и когда перезвонить/написать/привезти
     "tasks": "строка",         // что сделано и что осталось
@@ -143,15 +144,24 @@ SCHEMA = """━━━ СТРУКТУРА JSON (верни ТОЛЬКО вали�
   },
   "clients": [{
     "name": "имя или описание ('парочка, клеевой пол 10 м²')",
-    "source": "сам зашёл / повторный / звонок / мессенджер / неизвестно",
+    "source": "2GIS / Farpost / Рекомендация дизайнера / сам зашёл / повторный / звонок / мессенджер",
+    "designer": "имя дизайнера или null (только если source = 'Рекомендация дизайнера')",
+    "client_type": "Частник / Дизайнерский / Компания / null",
     "interest": "конкретно что смотрел/купил/спрашивал — товар, размер, нюансы",
+    "category": "SPC-кварцвинил / Ламинат / Паркет / Плитка / Ковролин / Подложка / Прочее / null",
+    "specifics": "конкретный бренд/коллекция/артикул или null",
     "area": int|null,          // площадь в м²
     "amount": int|null,        // рублей, если названа
-    "discount": "решение по скидке ('отменили 10%', '10% согласовано') или null",
-    "status": "купил / взял образцы / получил расчёт / думает / забрал материал / отгрузка",
+    "stage": "Купил / Расчёт / Посмотрел / Думает / Забрал материал / Отгрузка",
+    "payment_method": "Наличка / Карта / Перевод / null",
+    "discount": int|null,      // процент скидки числом, например 10
+    "discount_reason": "Дизайнерская / Постоянный клиент / и т.д. или null",
+    "refusal_reason": "Дорого / Надо посоветоваться / и т.д. или null",
+    "client_reaction": "что сказал клиент дословно, и позитив и негатив / null",
     "next_step": "конкретный следующий шаг или null",
     "followup_date": "завтра / послезавтра / через неделю / через месяц / null",
-    "comment": "ВСЁ важное: кто направил, способ оплаты, договорённости, нюансы / null"
+    "followup_status": "Новый / В работе / Закрыт / null",
+    "comment": "ВСЁ важное: договорённости, нюансы / null"
   }],
   "tasks": [{
     "task": "описание",
@@ -205,49 +215,89 @@ FEWSHOT_USER = """Отчёт продавца:
 
 FEWSHOT_ASSISTANT = json.dumps({
     "raw_events": [
-        "Парочка №1 — клеевой пол 30 м², расчёт 95000, образцы, думают (КЛИЕНТ)",
-        "Игорь позвонил — паркетная доска, зайдёт через месяц (КЛИЕНТ)",
-        "Клиентка — докупка 2 упаковки плитки, оплата картой, доверенность на завтра (КЛИЕНТ)",
-        "Привоз 15 упаковок для Сергея со склада в подсобку (ОПЕРАЦИЯ, не клиент)",
-        "Парочка №2 — тёплый пол, 2 пачки плитки, оплатили, забрали (КЛИЕНТ)",
-        "Маша: согласовать скидку VIP с директором, срочно (ЗАДАЧА)"
+        "Парочка с 2GIS — английская ёлка, смотрели SPC, взяли образцы (КЛИЕНТ)",
+        "Александр от дизайнера Марины — купил SPC 42 м², оплата картой (КЛИЕНТ)",
+        "Женщина 50+ с Farpost — интересовалась ламинатом, хочет посоветоваться (КЛИЕНТ)",
     ],
     "daily": {
-        "clients": 4,
-        "sales": 2,
+        "clients": 3,
+        "sales": 1,
         "sales_amount": None,
-        "kp": 1,
-        "potential": "Парочка №1 — клеевой пол 30 м², расчёт 95000, взяли образцы; Игорь — паркетная доска, через месяц",
-        "followup": "Клиентка — завтра на склад по доверенности; Игорь — через месяц",
-        "tasks": "Согласовать скидку VIP с директором (срочно); привоз 15 упаковок для Сергея выполнен",
-        "summary": "4 контакта, 2 продажи (докупка плитки и тёплый пол, обе картой). Парочка №1 получила расчёт 95000, думает. Привоз 15 упаковок для Сергея — в подсобке."
+        "kp": 0,
+        "main_event": "Александр от дизайнера Марины купил SPC на 42 м²",
+        "observation": "Клиенты с 2GIS и Farpost активно берут образцы — конверсия в покупку ожидается",
+        "potential": "Парочка с 2GIS — SPC английская ёлка, взяли образцы; Женщина 50+ с Farpost — ламинат, думает",
+        "followup": "Парочка с 2GIS — ждём решения; Женщина 50+ — перезвонить через неделю",
+        "tasks": "Подготовить образцы SPC английская ёлка для парочки",
+        "summary": "3 контакта, 1 продажа (Александр, SPC 42 м², карта). Парочка с 2GIS взяла образцы. Женщина с Farpost думает.",
     },
     "clients": [
-        {"name": "Парочка №1, клеевой пол 30 м²", "source": "сам зашёл",
-         "interest": "клеевой пол 30 м², расчёт 95000", "area": 30, "amount": 95000,
-         "discount": None, "status": "взял образцы", "next_step": "ждём решения по расчёту",
-         "followup_date": None, "comment": "взяли образцы, думают"},
-        {"name": "Игорь", "source": "звонок", "interest": "паркетная доска, уточнял наличие",
-         "area": None, "amount": None, "discount": None, "status": "думает",
-         "next_step": "зайдёт смотреть через месяц", "followup_date": "через месяц", "comment": None},
-        {"name": "Клиентка, докупка плитки", "source": "повторный",
-         "interest": "не хватило плитки — докупила 2 упаковки", "area": None, "amount": None,
-         "discount": None, "status": "купил", "next_step": "заберёт завтра по доверенности",
-         "followup_date": "завтра", "comment": "оплата картой, оформлена доверенность на склад"},
-        {"name": "Парочка №2, тёплый пол", "source": "сам зашёл",
-         "interest": "плитка под тёплый пол, 2 пачки", "area": None, "amount": None,
-         "discount": None, "status": "купил", "next_step": None, "followup_date": None,
-         "comment": "оплатили, сразу забрали"}
+        {
+            "name": "Парочка с 2GIS, SPC английская ёлка",
+            "source": "2GIS",
+            "designer": None,
+            "client_type": "Частник",
+            "interest": "SPC-кварцвинил, рисунок английская ёлка",
+            "category": "SPC-кварцвинил",
+            "specifics": "английская ёлка",
+            "area": None,
+            "amount": None,
+            "stage": "Посмотрел",
+            "payment_method": None,
+            "discount": None,
+            "discount_reason": None,
+            "refusal_reason": None,
+            "client_reaction": None,
+            "next_step": "ждём решения по образцам",
+            "followup_date": None,
+            "followup_status": "Новый",
+            "comment": "взяли образцы, думают",
+        },
+        {
+            "name": "Александр",
+            "source": "Рекомендация дизайнера",
+            "designer": "Марина",
+            "client_type": "Дизайнерский",
+            "interest": "SPC-кварцвинил, 42 м²",
+            "category": "SPC-кварцвинил",
+            "specifics": None,
+            "area": 42,
+            "amount": None,
+            "stage": "Купил",
+            "payment_method": "Карта",
+            "discount": None,
+            "discount_reason": None,
+            "refusal_reason": None,
+            "client_reaction": None,
+            "next_step": None,
+            "followup_date": None,
+            "followup_status": "Закрыт",
+            "comment": "от дизайнера Марины, оплата картой",
+        },
+        {
+            "name": "Женщина 50+, Farpost",
+            "source": "Farpost",
+            "designer": None,
+            "client_type": "Частник",
+            "interest": "ламинат, уточняла ассортимент",
+            "category": "Ламинат",
+            "specifics": None,
+            "area": None,
+            "amount": None,
+            "stage": "Думает",
+            "payment_method": None,
+            "discount": None,
+            "discount_reason": None,
+            "refusal_reason": "Надо посоветоваться",
+            "client_reaction": "хочет посоветоваться с мужем",
+            "next_step": "перезвонить через неделю",
+            "followup_date": "через неделю",
+            "followup_status": "Новый",
+            "comment": None,
+        },
     ],
-    "tasks": [
-        {"task": "согласовать скидку для VIP-клиента с директором", "related": "VIP-клиент",
-         "responsible": "продавец", "deadline": None, "priority": "Высокий", "status": "Новая",
-         "comment": "Маша сказала — срочно"}
-    ],
-    "operations": [
-        {"category": "Склад", "description": "привоз 15 упаковок для Сергея, размещены в подсобке",
-         "related": "Сергей", "status": "Выполнено", "next_action": None}
-    ]
+    "tasks": [],
+    "operations": [],
 }, ensure_ascii=False)
 
 
@@ -272,8 +322,7 @@ COUNT_SYSTEM = """Ты считаешь КЛИЕНТОВ в отчёте про�
 
 def _call_llm(messages: list, max_tokens: int = 8000, temperature: float = 0.1,
               retries: int = 3, delay: float = 3.0) -> str:
-    """Один вызов модели с повтором при сетевых сбоях / 429 / 5xx.
-    Возвращает очищенный от ``` текст ответа."""
+    """Один вызов модели с повтором при сетевых сбоях / 429 / 5xx."""
     raw = None
     for attempt in range(1, retries + 1):
         try:
@@ -290,7 +339,6 @@ def _call_llm(messages: list, max_tokens: int = 8000, temperature: float = 0.1,
                 )
                 resp.raise_for_status()
                 payload = resp.json()
-            # OpenRouter иногда возвращает 200 с телом-ошибкой без choices.
             choices = payload.get("choices")
             if not choices:
                 raise ValueError(f"Ответ без choices: {str(payload)[:200]}")
@@ -299,7 +347,7 @@ def _call_llm(messages: list, max_tokens: int = 8000, temperature: float = 0.1,
         except httpx.HTTPStatusError as e:
             code = e.response.status_code
             if code not in (429,) and 400 <= code < 500:
-                raise  # 4xx (кроме 429) — повтор не поможет
+                raise
             if attempt < retries:
                 logger.warning("LLM попытка %d/%d: HTTP %s — повтор через %.0fs",
                                attempt, retries, code, delay)
@@ -480,20 +528,12 @@ def _merge_chunks(parts: list[dict]) -> dict:
         vals = [v for v in vals if v and v.lower() != "none"]
         return "; ".join(dict.fromkeys(vals)) or None  # dict.fromkeys убирает повторы
 
-    # Продажа = статус начинается с "куп" (купил/купили), amount не обязателен.
-    # КП = есть сумма, но клиент НЕ купил (расчёт/думает/образцы).
-    # sales_amount — сумма только явно купивших; агрегируем осторожно.
-    sold_clients = [c for c in clients if str(c.get("status", "")).startswith("куп")]
-    kp_clients = [c for c in clients
-                  if c.get("amount") and not str(c.get("status", "")).startswith("куп")]
-    sold_amounts = [c["amount"] for c in sold_clients
-                    if isinstance(c.get("amount"), (int, float))]
-
     daily = {
         "clients": len(clients),
-        "sales": len(sold_clients),
-        "sales_amount": sum(sold_amounts) if sold_amounts else None,
-        "kp": len(kp_clients),
+        "sales": sum(1 for c in clients if c.get("stage") == "Купил"),
+        "sales_amount": None,  # суммы агрегировать опасно — пусть проставит финальный проход ниже
+        "kp": sum(1 for c in clients
+                  if c.get("amount") and c.get("stage") in ("Расчёт", "Думает", "Посмотрел")),
         "potential": join_field("potential"),
         "followup": join_field("followup"),
         "tasks": join_field("tasks"),
@@ -546,10 +586,10 @@ def validate_and_fix(data: dict, independent_count: int = -1) -> dict:
     # daily.clients ВСЕГДА = факту в массиве (не врём в большую сторону).
     daily["clients"] = in_array
 
-    # KP по клиентам с суммой но без покупки, если модель не заполнила.
+    # KP по клиентам с суммой, если модель не заполнила.
     if not daily.get("kp"):
         daily["kp"] = sum(1 for c in clients
-                          if c.get("amount") and not str(c.get("status", "")).startswith("куп"))
+                          if c.get("amount") and c.get("stage") in ("Расчёт", "Думает", "Посмотрел"))
 
     # Галлюцинация суммы: > 10 млн — почти наверняка выдумано.
     if isinstance(daily.get("sales_amount"), (int, float)) and daily["sales_amount"] > 10_000_000:
@@ -569,11 +609,11 @@ def validate_and_fix(data: dict, independent_count: int = -1) -> dict:
         if op_events and op_events != len(operations):
             warnings.append(f"операций: меток {op_events} ≠ записей {len(operations)}")
 
-    # Чистим строки-заглушки → None во всех записях.
-    for item in [*clients, *tasks, *operations]:
-        for k, val in list(item.items()):
-            if isinstance(val, str) and val.strip() in ("—", "null", ""):
-                item[k] = None
+    # Чистим строки-заглушки → None во всех клиентских полях.
+    for c in clients:
+        for k, v in list(c.items()):
+            if isinstance(v, str) and v.strip() in ("—", "null", ""):
+                c[k] = None
 
     data.update({
         "daily": daily, "clients": clients, "tasks": tasks,
