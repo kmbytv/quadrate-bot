@@ -56,7 +56,7 @@ async def transcribe_voice(file_id: str, context: ContextTypes.DEFAULT_TYPE) -> 
     voice_bytes = await file.download_as_bytearray()
 
     def _do():
-        client = httpx.Client(proxy=PROXY_URL, timeout=120) if PROXY_URL else httpx.Client(timeout=120)
+        client = httpx.Client(timeout=120)
         with client:
             resp = client.post(
                 "https://api.deepgram.com/v1/listen"
