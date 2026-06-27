@@ -61,7 +61,7 @@ def _headers():
 
 
 def _client():
-    return httpx.Client(proxy=PROXY_URL, timeout=120) if PROXY_URL else httpx.Client(timeout=120)
+    return httpx.Client(timeout=120)
 
 
 def _hint_block() -> str:
