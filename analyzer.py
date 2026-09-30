@@ -48,6 +48,17 @@ CHUNK_TARGET_CHARS = int(os.getenv("CHUNK_TARGET_CHARS", "1400"))
 MAX_ATTEMPTS = int(os.getenv("MAX_ATTEMPTS", "3"))
 
 # Опциональные справочники (по умолчанию пустые — логика держится на правилах).
+class LLMError(RuntimeError):
+    """Ошибка вызова модели. fatal=True — повторять бессмысленно (ключ, баланс, модель)."""
+    def __init__(self, msg: str, fatal: bool = False):
+        super().__init__(msg)
+        self.fatal = fatal
+
+
+class AnalyzeError(RuntimeError):
+    """Разбор не удался ни с одной попытки. Текст — причина для продавца/логов."""
+
+
 KNOWN_SUPPLIERS = [s.strip() for s in os.getenv("KNOWN_SUPPLIERS", "").split(",") if s.strip()]
 KNOWN_STAFF = [s.strip() for s in os.getenv("KNOWN_STAFF", "").split(",") if s.strip()]
 
@@ -282,8 +293,20 @@ def _call_llm(messages: list, max_tokens: int = 8000, temperature: float = 0.1) 
                 "max_tokens": max_tokens,
             },
         )
-        resp.raise_for_status()
-        raw = resp.json()["choices"][0]["message"]["content"].strip()
+        if resp.status_code >= 400:
+            # Тело ответа OpenRouter — единственное место, где видно ПОЧЕМУ отказ
+            # (нет кредитов, неверный ключ, несуществующая модель и т.п.).
+            body = resp.text[:500]
+            logger.error("OpenRouter %s: %s", resp.status_code, body)
+            fatal = resp.status_code in (400, 401, 402, 403, 404)
+            raise LLMError(f"OpenRouter {resp.status_code}: {body}", fatal=fatal)
+        payload = resp.json()
+        if payload.get("error"):
+            raise LLMError(f"OpenRouter error: {payload['error']}")
+        content = ((payload.get("choices") or [{}])[0].get("message") or {}).get("content")
+        if not content:
+            raise LLMError(f"Пустой ответ модели: {str(payload)[:300]}")
+        raw = content.strip()
     raw = re.sub(r"^```(?:json)?\s*", "", raw)
     raw = re.sub(r"\s*```$", "", raw).strip()
     return raw
@@ -565,7 +588,7 @@ def analyze_report(text: str) -> dict:
     independent = count_people(text)
     logger.info("Независимый счётчик клиентов: %s", independent)
 
-    best = {}
+    best, last_error = {}, None
     for attempt in range(MAX_ATTEMPTS):
         try:
             if is_long:
@@ -596,8 +619,17 @@ def analyze_report(text: str) -> dict:
                 return data
             logger.warning("Попытка %d: пропуск клиента, повтор", attempt + 1)
 
-        except Exception as e:
+        except LLMError as e:
+            last_error = e
             logger.error("Ошибка разбора (попытка %d): %s", attempt + 1, e)
+            if e.fatal:
+                break  # ключ/баланс/модель — повтор не поможет
+        except Exception as e:
+            last_error = e
+            logger.exception("Ошибка разбора (попытка %d): %s", attempt + 1, e)
+
+    if not best:
+        raise AnalyzeError(str(last_error) if last_error else "неизвестная ошибка")
 
     # Все попытки исчерпаны — отдаём лучшее, но с честным флагом для UI.
     if best:
