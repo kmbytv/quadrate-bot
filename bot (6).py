@@ -298,7 +298,7 @@ def main():
     app.add_handler(conv)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
-    logger.info("Бот запущен. Модель: %s", os.getenv("LLM_MODEL", "anthropic/claude-opus-4-5"))
+    logger.info("Бот запущен. Модель: %s", os.getenv("LLM_MODEL", "gpt-6-luna"))
     app.run_polling()
 
 

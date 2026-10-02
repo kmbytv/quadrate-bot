@@ -32,12 +32,15 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-OPENROUTER_BASE = "https://openrouter.ai/api/v1"
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_BASE = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
 PROXY_URL = os.getenv("PROXY_URL")
 
-# Модель-агностично: ставь любую сильную reasoning-модель через .env.
-MODEL = os.getenv("LLM_MODEL", "anthropic/claude-opus-4-5")
+# Модель OpenAI. Пиши конкретную версию, а не алиас, чтобы она не менялась сама.
+MODEL = os.getenv("LLM_MODEL", "gpt-6-luna")
+# Глубина рассуждений: none / low / medium / high. Для разбора отчёта хватает low —
+# быстрее и дешевле, а рассуждения тоже тратят лимит токенов ответа.
+REASONING_EFFORT = os.getenv("LLM_REASONING_EFFORT", "low")
 
 # Порог, после которого включается map-reduce. Меряем в символах транскрипта.
 # ~1800 символов ≈ полторы минуты речи. Длиннее — бьём на куски.
@@ -65,7 +68,7 @@ KNOWN_STAFF = [s.strip() for s in os.getenv("KNOWN_STAFF", "").split(",") if s.s
 
 def _headers():
     return {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
         "Content-Type": "application/json",
     }
 
@@ -280,32 +283,38 @@ COUNT_SYSTEM = """Ты считаешь КЛИЕНТОВ в отчёте про�
 #  НИЗКОУРОВНЕВЫЙ ВЫЗОВ МОДЕЛИ
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _call_llm(messages: list, max_tokens: int = 8000, temperature: float = 0.1) -> str:
-    """Один вызов модели. Возвращает очищенный от ``` текст ответа."""
+def _call_llm(messages: list, max_tokens: int = 16000) -> str:
+    """Один вызов модели. Возвращает очищенный от ``` текст ответа.
+    temperature не передаём: reasoning-модели OpenAI её не принимают.
+    max_completion_tokens включает скрытые рассуждения — поэтому с запасом."""
     with _client() as client:
         resp = client.post(
-            f"{OPENROUTER_BASE}/chat/completions",
+            f"{OPENAI_BASE}/chat/completions",
             headers=_headers(),
             json={
                 "model": MODEL,
                 "messages": messages,
-                "temperature": temperature,
-                "max_tokens": max_tokens,
+                "max_completion_tokens": max_tokens,
+                "reasoning_effort": REASONING_EFFORT,
+                "response_format": {"type": "json_object"},
             },
         )
         if resp.status_code >= 400:
-            # Тело ответа OpenRouter — единственное место, где видно ПОЧЕМУ отказ
-            # (нет кредитов, неверный ключ, несуществующая модель и т.п.).
+            # Тело ответа — единственное место, где видно ПОЧЕМУ отказ
+            # (нет денег, неверный ключ, несуществующая модель, регион и т.п.).
             body = resp.text[:500]
-            logger.error("OpenRouter %s: %s", resp.status_code, body)
-            fatal = resp.status_code in (400, 401, 402, 403, 404)
-            raise LLMError(f"OpenRouter {resp.status_code}: {body}", fatal=fatal)
+            logger.error("OpenAI %s: %s", resp.status_code, body)
+            # 429 бывает и временным (rate limit), и концом баланса (insufficient_quota).
+            fatal = (resp.status_code in (400, 401, 403, 404)
+                     or (resp.status_code == 429 and "insufficient_quota" in body))
+            raise LLMError(f"OpenAI {resp.status_code}: {body}", fatal=fatal)
         payload = resp.json()
-        if payload.get("error"):
-            raise LLMError(f"OpenRouter error: {payload['error']}")
-        content = ((payload.get("choices") or [{}])[0].get("message") or {}).get("content")
+        choice = (payload.get("choices") or [{}])[0]
+        content = (choice.get("message") or {}).get("content")
         if not content:
-            raise LLMError(f"Пустой ответ модели: {str(payload)[:300]}")
+            reason = choice.get("finish_reason")
+            hint = " (рассуждения съели лимит токенов)" if reason == "length" else ""
+            raise LLMError(f"Пустой ответ модели, finish_reason={reason}{hint}")
         raw = content.strip()
     raw = re.sub(r"^```(?:json)?\s*", "", raw)
     raw = re.sub(r"\s*```$", "", raw).strip()
@@ -340,7 +349,7 @@ def count_people(text: str) -> int:
                 {"role": "system", "content": COUNT_SYSTEM},
                 {"role": "user", "content": f"Отчёт продавца:\n{text}"},
             ],
-            max_tokens=1500,
+            max_tokens=4000,
         )
         data = _parse_json(raw)
         people = data.get("people")
