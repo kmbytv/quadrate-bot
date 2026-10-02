@@ -46,7 +46,12 @@ def _post(tab: str, rows: list):
         return
     url = f"{SHEETBEST_URL}/tabs/{tab}"
     resp = httpx.post(url, json=rows, timeout=30)
-    resp.raise_for_status()
+    if resp.status_code >= 400:
+        # Без тела ответа видно только "400" — а причина (лимит тарифа, нет вкладки,
+        # не те колонки) написана именно в теле.
+        body = resp.text[:300]
+        logger.error("SheetBest %s, вкладка %s: %s", resp.status_code, tab, body)
+        raise RuntimeError(f"SheetBest {resp.status_code} (вкладка «{tab}»): {body}")
 
 
 def _fetch_tab(tab: str) -> list:
