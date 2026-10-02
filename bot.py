@@ -25,6 +25,8 @@ from analyzer import analyze_report, AnalyzeError  # noqa: E402  (после loa
 from sheets import write_all_sheets       # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
+# httpx на уровне INFO пишет полный URL каждого запроса, а в URL Telegram лежит токен бота.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 TOKEN = os.getenv("BOT_TOKEN")
