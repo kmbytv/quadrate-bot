@@ -15,14 +15,21 @@ import os
 import logging
 import httpx
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
 
 SHEETBEST_URL = os.getenv("SHEETBEST_URL")
 ENABLE_SALES_SUMMARY = os.getenv("ENABLE_SALES_SUMMARY", "false").lower() == "true"
 
-# Апостроф спереди — чтобы SheetBest/Sheets писал дату как ТЕКСТ, а не пересчитывал.
-DATE = "'" + datetime.now().strftime("%d.%m.%Y")
+# Часовой пояс магазина: сервер может жить в UTC, а дата отчёта — по местному времени.
+REPORT_TZ = ZoneInfo(os.getenv("REPORT_TZ", "Europe/Moscow"))
+
+
+def _today() -> str:
+    """Дата отчёта. Считаем при каждой записи, а не при старте: бот работает сутками.
+    Апостроф спереди — чтобы SheetBest/Sheets писал дату как ТЕКСТ, а не пересчитывал."""
+    return "'" + datetime.now(REPORT_TZ).strftime("%d.%m.%Y")
 
 
 def v(val, default="—"):
@@ -61,7 +68,7 @@ def daily_count_today(name: str) -> int:
     for row in rows:
         # Имя могло быть записано как "Ytka" или "Ytka (отчёт №2)" — сверяем по началу.
         emp = str(row.get("Сотрудник", ""))
-        if row.get("Дата") == DATE and emp.startswith(name):
+        if row.get("Дата") == _today() and emp.startswith(name):
             cnt += 1
     return cnt
 
@@ -81,7 +88,7 @@ def write_all_sheets(name: str, data: dict, force: bool = False) -> dict:
 
     existing = daily_count_today(name)
     if existing > 0 and not force:
-        logger.warning("Отчёт от %s за %s уже есть (%d шт) — нужно подтверждение", name, DATE, existing)
+        logger.warning("Отчёт от %s за %s уже есть (%d шт) — нужно подтверждение", name, _today(), existing)
         return {"status": "duplicate"}
 
     report_no = existing + 1
@@ -90,7 +97,7 @@ def write_all_sheets(name: str, data: dict, force: bool = False) -> dict:
 
     # ── Daily Reports — одна строка на отчёт ──
     _post("Daily Reports", [{
-        "Дата": DATE,
+        "Дата": _today(),
         "Сотрудник": emp_label,
         "Клиентов за день": v(daily.get("clients")),
         "Продаж": v(daily.get("sales")),
@@ -110,7 +117,7 @@ def write_all_sheets(name: str, data: dict, force: bool = False) -> dict:
             continue
         seen.add(key)
         client_rows.append({
-            "Дата": DATE,
+            "Дата": _today(),
             "Сотрудник": emp_label,
             "Клиент": key,
             "Источник": v(c.get("source")),
@@ -134,7 +141,7 @@ def write_all_sheets(name: str, data: dict, force: bool = False) -> dict:
             continue
         seen.add(key)
         task_rows.append({
-            "Дата создания": DATE,
+            "Дата создания": _today(),
             "Задача": key,
             "Связано с": v(t.get("related")),
             "Ответственный": v(t.get("responsible"), name),
@@ -154,7 +161,7 @@ def write_all_sheets(name: str, data: dict, force: bool = False) -> dict:
             continue
         seen.add(key)
         op_rows.append({
-            "Дата": DATE,
+            "Дата": _today(),
             "Сотрудник": emp_label,
             "Категория": v(op.get("category")),
             "Описание": key,
@@ -179,7 +186,7 @@ def update_sales_summary(name: str, daily: dict):
     """ЗАДЕЛ: агрегат продаж по дням. Включается через ENABLE_SALES_SUMMARY=true.
     Сейчас просто дописывает строку-срез; при желании расширишь до недель/месяцев."""
     _post("Sales Summary", [{
-        "Дата": DATE,
+        "Дата": _today(),
         "Сотрудник": name,
         "Клиентов": v(daily.get("clients")),
         "Продаж": v(daily.get("sales")),
