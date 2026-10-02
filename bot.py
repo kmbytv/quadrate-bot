@@ -260,15 +260,16 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 #  ЗАПУСК
 # ─────────────────────────────────────────────────────────────────────────────
 def _request():
+    # Таймауты с запасом и без прокси: стандартные 5 секунд рвутся на медленной сети.
     return HTTPXRequest(http_version="1.1", proxy=PROXY_URL,
-                        connect_timeout=30, read_timeout=30, write_timeout=30)
+                        connect_timeout=30, read_timeout=30, write_timeout=30,
+                        pool_timeout=30)
 
 
 def main():
-    builder = Application.builder().token(TOKEN)
-    if PROXY_URL:
-        builder = builder.request(_request()).get_updates_request(_request())
-    app = builder.build()
+    app = (Application.builder().token(TOKEN)
+           .request(_request()).get_updates_request(_request())
+           .build())
 
     conv = ConversationHandler(
         entry_points=[
@@ -299,7 +300,9 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
     logger.info("Бот запущен. Модель: %s", os.getenv("LLM_MODEL", "gpt-6-luna"))
-    app.run_polling()
+    # bootstrap_retries=-1: если Telegram не ответил при старте — пробуем снова,
+    # а не падаем. Сбои во время работы библиотека и так переживает сама.
+    app.run_polling(bootstrap_retries=-1)
 
 
 if __name__ == "__main__":
