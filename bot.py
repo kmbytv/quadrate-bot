@@ -21,7 +21,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from analyzer import analyze_report      # noqa: E402  (после load_dotenv — нужно для .env)
+from analyzer import analyze_report, AnalyzeError  # noqa: E402  (после load_dotenv — нужно для .env)
 from sheets import write_all_sheets       # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
@@ -191,7 +191,17 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
 
     await update.message.reply_text("🤖 Анализирую отчёт...")
-    data = analyze_report(text)
+    import asyncio
+    try:
+        # analyze_report синхронный и идёт минутами — в executor, чтобы бот не
+        # замирал для всех остальных пользователей.
+        data = await asyncio.get_running_loop().run_in_executor(None, analyze_report, text)
+    except AnalyzeError as e:
+        logger.error("Разбор не удался: %s", e)
+        await update.message.reply_text(
+            f"⚠️ Не удалось разобрать отчёт. Попробуй ещё раз.\nПричина: {str(e)[:300]}",
+            reply_markup=MAIN_KB)
+        return ConversationHandler.END
 
     if not data:
         await update.message.reply_text("⚠️ Не удалось разобрать отчёт. Попробуй ещё раз.",
@@ -288,7 +298,7 @@ def main():
     app.add_handler(conv)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
-    logger.info("Бот запущен. Модель: %s", os.getenv("LLM_MODEL", "openai/gpt-4o"))
+    logger.info("Бот запущен. Модель: %s", os.getenv("LLM_MODEL", "gpt-6-luna"))
     app.run_polling()
 
 
